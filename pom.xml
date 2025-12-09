@@ -17,6 +17,7 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <maven.compiler.source>21</maven.compiler.source>
         <maven.compiler.target>21</maven.compiler.target>
+        <javafx.platform>win</javafx.platform>
         <javafx.version>21.0.4</javafx.version>
     </properties>
 
@@ -26,16 +27,19 @@
             <groupId>org.openjfx</groupId>
             <artifactId>javafx-controls</artifactId>
             <version>${javafx.version}</version>
+            <classifier>${javafx.platform}</classifier>
         </dependency>
         <dependency>
             <groupId>org.openjfx</groupId>
             <artifactId>javafx-fxml</artifactId>
             <version>${javafx.version}</version>
+            <classifier>${javafx.platform}</classifier>
         </dependency>
         <dependency>
             <groupId>org.openjfx</groupId>
             <artifactId>javafx-graphics</artifactId>
             <version>${javafx.version}</version>
+            <classifier>${javafx.platform}</classifier>
         </dependency>
     </dependencies>
 
@@ -50,6 +54,9 @@
                     <target>21</target>
                     <release>21</release>
                     <enablePreview>false</enablePreview>
+                    <excludes>
+                        <exclude>module-info.java</exclude>
+                    </excludes>
                 </configuration>
             </plugin>
 

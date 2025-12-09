@@ -1,0 +1,13 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "java",
+      "name": "Launch Main",
+      "request": "launch",
+      "mainClass": "com.jumpiquest.main.Main",
+      "projectName": "Jumpio-quest",
+      "vmArgs": "--add-modules=javafx.controls,javafx.graphics --add-opens=javafx.graphics/javafx.scene=ALL-UNNAMED --enable-native-access=javafx.graphics"
+    }
+  ]
+}

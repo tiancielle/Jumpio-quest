@@ -81,6 +81,28 @@ public class Engine {
         // wall collisions handled by level
         level.handleWallCollisions(player);
 
+        // update mobile obstacles and check collisions
+        for (MobileObstacle mob : level.mobileObstacles) {
+            mob.update(dt);
+            
+            // Check collision with player
+            if (mob.collidsWith(player.x, player.y, player.w, player.h)) {
+                player.takeDamage();
+                if (player.getLives() <= 0) {
+                    gameOver = true;
+                    if (timer != null) timer.stop();
+                } else {
+                    // respawn the player at spawn point
+                    player.x = level.spawnX;
+                    player.y = level.spawnY;
+                    player.vx = 0;
+                    player.vy = 0;
+                    player.onGround = true;
+                }
+                break; // only take damage once per frame
+            }
+        }
+
         // detect falling into hole: if player top goes below ground level while over a hole
         double centerX = player.x + player.w / 2.0;
         if (level.isHoleAt(centerX) && player.y > level.getGroundY()) {

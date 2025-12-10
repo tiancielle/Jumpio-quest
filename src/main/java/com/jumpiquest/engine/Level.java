@@ -9,6 +9,7 @@ import javafx.scene.canvas.GraphicsContext;
 
 public class Level {
     public final List<Obstacle> obstacles = new ArrayList<>();
+    public final List<MobileObstacle> mobileObstacles = new ArrayList<>();
     public int levelWidth; // dynamically set based on difficulty
     public final int levelHeight = 720;
     public final List<Obstacle> platforms = new ArrayList<>();
@@ -164,6 +165,22 @@ public class Level {
 
             currentX = holeX + holeSize + extraGap;
         }
+
+        // Generate mobile obstacles at specific positions
+        generateMobileObstacles();
+    }
+
+    private void generateMobileObstacles() {
+        mobileObstacles.clear();
+        // Spawn mobile obstacles at various positions along the level
+        double[] positions = {1200, 2000, 3000, 4000, 5200, 6500, 7200};
+        double mobileY = groundY - 40; // ground level for mobile obstacles (40 is their height)
+        
+        for (double pos : positions) {
+            if (pos < levelWidth) {
+                mobileObstacles.add(new MobileObstacle(pos, mobileY));
+            }
+        }
     }
 
     public double getGroundY() {
@@ -180,6 +197,11 @@ public class Level {
         // draw obstacles (walls and holes) at their world positions
         for (Obstacle o : obstacles) {
             o.render(gc, groundY);
+        }
+        
+        // draw mobile obstacles
+        for (MobileObstacle mob : mobileObstacles) {
+            mob.render(gc);
         }
     }
 

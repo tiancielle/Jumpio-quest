@@ -1,0 +1,79 @@
+/* Pixelated menu theme inspired by the provided artwork */
+
+.root {
+    -fx-background-image: url("landscape.jpg");
+    -fx-background-size: cover;
+    -fx-background-position: center center;
+    -fx-background-repeat: no-repeat;
+}
+
+/* translucent panel to improve contrast */
+.menu-panel {
+    -fx-background-color: rgba(0,0,0,0.45);
+    -fx-background-radius: 6;
+    -fx-padding: 28 40 28 40;
+    -fx-alignment: center;
+}
+
+.title {
+    -fx-font-family: "monospace";
+    -fx-font-size: 56px;
+    -fx-text-fill: #ffbb55; /* warm orange */
+    -fx-font-weight: bold;
+    -fx-effect: dropshadow( gaussian , rgba(0,0,0,0.8) , 6,0,0,4 );
+    -fx-alignment: center;
+}
+
+.score-label {
+    -fx-font-family: "monospace";
+    -fx-font-size: 18px;
+    -fx-text-fill: whitesmoke;
+    -fx-padding: 6 0 12 0;
+}
+
+/* Pixel-style button */
+.pixel-button {
+    -fx-background-color: linear-gradient(#ff9a2a, #f06b1a);
+    -fx-background-insets: 0;
+    -fx-background-radius: 0;
+    -fx-border-color: #7a3b00;
+    -fx-border-width: 4;
+    -fx-border-radius: 0;
+    -fx-padding: 10 24 10 24;
+    -fx-font-family: "monospace";
+    -fx-font-size: 20px;
+    -fx-font-weight: bold;
+    -fx-text-fill: white;
+    -fx-effect: dropshadow( gaussian , rgba(0,0,0,0.6) , 4,0,0,2 );
+}
+
+.pixel-button:pressed {
+    -fx-translate-y: 2;
+    -fx-border-color: #4a1f00;
+}
+
+/* Radio buttons styled to look like small pixel buttons */
+.pixel-toggle {
+    -fx-background-color: linear-gradient(#ffd08a, #ff9a2a);
+    -fx-border-color: #7a3b00;
+    -fx-border-width: 3;
+    -fx-padding: 6 12 6 12;
+    -fx-font-family: "monospace";
+    -fx-font-size: 16px;
+    -fx-text-fill: #2b1200;
+}
+
+.pixel-toggle:selected {
+    -fx-background-color: linear-gradient(#ffb84d, #ff8a1a);
+}
+
+/* layout tweaks for the difficulty row */
+.difficulty-row {
+    -fx-alignment: center;
+    -fx-spacing: 18;
+}
+
+/* center the whole menu in the scene */
+.menu-root {
+    -fx-alignment: center;
+}

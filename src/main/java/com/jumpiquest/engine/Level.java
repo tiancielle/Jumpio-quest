@@ -9,8 +9,7 @@ import javafx.scene.canvas.GraphicsContext;
 
 public class Level {
     public final List<Obstacle> obstacles = new ArrayList<>();
-    // shorter, playable level length requested by the user
-    public final int levelWidth = 5000;
+    public int levelWidth; // dynamically set based on difficulty
     public final int levelHeight = 720;
     public final List<Obstacle> platforms = new ArrayList<>();
     public final List<Obstacle> walls = new ArrayList<>();
@@ -21,6 +20,16 @@ public class Level {
     public final double spawnY = groundY - 60; // player height 60
 
     public Level() {
+        // Set levelWidth based on difficulty
+        com.jumpiquest.main.GameSettings.Difficulty diff = com.jumpiquest.main.GameSettings.getDifficulty();
+        if (diff == com.jumpiquest.main.GameSettings.Difficulty.FACILE) {
+            this.levelWidth = 5000;
+        } else if (diff == com.jumpiquest.main.GameSettings.Difficulty.DIFFICILE) {
+            this.levelWidth = 8000;
+        } else {
+            this.levelWidth = 6000; // MOYEN
+        }
+        
         // generate the level procedurally
         generateLevel();
     }
@@ -41,41 +50,101 @@ public class Level {
         double currentX = 0.0;
         ThreadLocalRandom rnd = ThreadLocalRandom.current();
 
+        // Adjust generation parameters based on selected difficulty
+        com.jumpiquest.main.GameSettings.Difficulty diff = com.jumpiquest.main.GameSettings.getDifficulty();
+
+        double platformMin = 250, platformMax = 500;
+        double holeMin = 50, holeMax = 140;
+        double holeSpawnChance = 0.8; // probability to spawn a hole after platform
+        double wallChance = 0.55;
+        double wallHMin = 40, wallHMax = 90;
+        double gapShortMin = 30, gapShortMax = 60;
+        double gapMediumMin = 60, gapMediumMax = 100;
+        double gapLongMin = 100, gapLongMax = 140;
+
+        if (diff == com.jumpiquest.main.GameSettings.Difficulty.FACILE) {
+            // Easy: longer platforms, smaller holes, fewer obstacles, wider gaps
+            platformMin = 350;
+            platformMax = 650;
+            holeMin = 40;
+            holeMax = 80;
+            holeSpawnChance = 0.50; // only 50% chance to spawn holes (fewer obstacles)
+            wallChance = 0.20; // very few walls
+            wallHMin = 25;
+            wallHMax = 60;
+            gapShortMin = 20;
+            gapShortMax = 50;
+            gapMediumMin = 50;
+            gapMediumMax = 80;
+            gapLongMin = 80;
+            gapLongMax = 120;
+        } else if (diff == com.jumpiquest.main.GameSettings.Difficulty.DIFFICILE) {
+            // Hard: shorter platforms, larger holes, many obstacles, narrow gaps
+            platformMin = 180;
+            platformMax = 380;
+            holeMin = 100;
+            holeMax = 220;
+            holeSpawnChance = 0.95; // almost always spawn holes (many obstacles)
+            wallChance = 0.75; // many walls
+            wallHMin = 60;
+            wallHMax = 120;
+            gapShortMin = 40;
+            gapShortMax = 80;
+            gapMediumMin = 80;
+            gapMediumMax = 130;
+            gapLongMin = 130;
+            gapLongMax = 180;
+        } else {
+            // Medium (default): balanced approach
+            platformMin = 250;
+            platformMax = 500;
+            holeMin = 60;
+            holeMax = 140;
+            holeSpawnChance = 0.75; // 75% chance to spawn holes
+            wallChance = 0.50;
+            wallHMin = 40;
+            wallHMax = 90;
+            gapShortMin = 30;
+            gapShortMax = 60;
+            gapMediumMin = 60;
+            gapMediumMax = 100;
+            gapLongMin = 100;
+            gapLongMax = 140;
+        }
+
         while (currentX < levelWidth) {
             // create a platform segment
-            // moderate platform segments to allow natural progression
-            double platformLen = rnd.nextDouble(250, 500); // 250-500 px segments
+            double platformLen = rnd.nextDouble(platformMin, platformMax);
             if (currentX + platformLen > levelWidth) {
                 platformLen = levelWidth - currentX;
             }
             Obstacle platform = new Obstacle(Obstacle.Type.PLATFORM, currentX, platformLen, 0);
             platforms.add(platform);
 
-            // choose a hole size from one of the ranges: 80-150, 150-300, 300-450
-            // Make holes small enough to be jumpable by the player.
-            // Conservative horizontal jump budget ~180 px; keep holes below that and often smaller.
-            double holeSize = rnd.nextDouble(50, 140); // 50-140 px
-
+            // choose a hole size with adaptive spawn chance
+            double holeSize = 0;
             double holeX = currentX + platformLen;
-            // if the hole would exceed level, clamp and break
-            if (holeX >= levelWidth) break;
-            if (holeX + holeSize > levelWidth) {
-                holeSize = Math.max(0, levelWidth - holeX);
-            }
+            
+            // Only spawn hole if random chance passes
+            if (rnd.nextDouble() < holeSpawnChance) {
+                holeSize = rnd.nextDouble(holeMin, holeMax);
+                // if the hole would exceed level, clamp
+                if (holeX >= levelWidth) {
+                    holeSize = 0;
+                } else if (holeX + holeSize > levelWidth) {
+                    holeSize = Math.max(0, levelWidth - holeX);
+                }
 
-            if (holeSize > 0) {
-                Obstacle hole = new Obstacle(Obstacle.Type.HOLE, holeX, holeSize, 0);
-                obstacles.add(hole);
+                if (holeSize > 0) {
+                    Obstacle hole = new Obstacle(Obstacle.Type.HOLE, holeX, holeSize, 0);
+                    obstacles.add(hole);
+                }
             }
 
             // optionally place a wall somewhere on the platform we just created
-            // ensure wall sits on the platform (not inside the hole)
-            // reduce probability and heights to avoid unjumpable walls
-            if (platformLen > 140 && rnd.nextDouble() < 0.55) { // medium chance to add walls
-                double wallW = 30; // slightly narrower wall
-                // keep wall heights low so player can reach/clear them when jumping
-                double wallH = rnd.nextDouble(40, 90); // 40-90 px
-                // place wall away from platform edges to allow approach and landing
+            if (platformLen > 140 && rnd.nextDouble() < wallChance) {
+                double wallW = 30;
+                double wallH = rnd.nextDouble(wallHMin, wallHMax);
                 double minX = currentX + Math.max(60, platformLen * 0.15);
                 double maxX = currentX + Math.max(60, platformLen - Math.max(60, platformLen * 0.15));
                 if (minX < maxX) {
@@ -86,19 +155,15 @@ public class Level {
                 }
             }
 
-            // advance currentX: move past hole and then add a random gap before next platform
-            // gaps between segments should be manageable horizontally
-            // keep gaps small to medium so player can cross with normal jump
-            double gapShort = rnd.nextDouble(30, 60);
-            double gapMedium = rnd.nextDouble(60, 100);
-            double gapLong = rnd.nextDouble(100, 140);
+            // advance currentX with variable gaps
+            double gapShort = rnd.nextDouble(gapShortMin, gapShortMax);
+            double gapMedium = rnd.nextDouble(gapMediumMin, gapMediumMax);
+            double gapLong = rnd.nextDouble(gapLongMin, gapLongMax);
             int gapKind = rnd.nextInt(3);
             double extraGap = (gapKind == 0) ? gapShort : (gapKind == 1 ? gapMedium : gapLong);
 
             currentX = holeX + holeSize + extraGap;
         }
-
-        // ensure obstacles list also contains walls (holes already added) - already done
     }
 
     public double getGroundY() {

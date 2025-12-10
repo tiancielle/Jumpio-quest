@@ -4,7 +4,7 @@ import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
 
 public class Obstacle {
-    public enum Type { WALL, HOLE }
+    public enum Type { WALL, HOLE, PLATFORM }
 
     public final Type type;
     public final double x;
@@ -27,6 +27,11 @@ public class Obstacle {
             // draw hole as a black rectangle cut in the ground
             gc.setFill(Color.BLACK);
             gc.fillRect(x, groundY, w, 100);
+        } else if (type == Type.PLATFORM) {
+            // draw a ground/platform segment
+            gc.setFill(Color.DARKGREEN);
+            // draw a thicker ground so it looks like the floor
+            gc.fillRect(x, groundY, w, 200);
         }
     }
 }

@@ -53,8 +53,14 @@ public class Player {
             onGround = false;
         }
 
+        // keep player within world bounds when a level is provided
         if (x < 0) x = 0;
-        if (x > 800 - w) x = 800 - w;
+        if (level != null) {
+            double maxX = Math.max(0, level.levelWidth - w);
+            if (x > maxX) x = maxX;
+        } else {
+            if (x > 800 - w) x = 800 - w;
+        }
 
         // update invincibility / blinking
         if (invincible) {

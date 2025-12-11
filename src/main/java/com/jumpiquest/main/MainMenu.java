@@ -17,12 +17,12 @@ import javafx.scene.text.Font;
 import javafx.stage.Stage;
 
 public class MainMenu {
-    public static void show(Stage stage) {
-        Label title = new Label("JUMPIO\nQUEST");
-        title.setFont(Font.font(48));
-        title.getStyleClass().add("title");
+    public static void show(Stage stage, ScoreManager scoreManager) {
+    Label title = new Label("JUMPIO\nQUEST");
+    title.setFont(Font.font(48));
+    title.getStyleClass().add("title");
 
-        Label scoreLabel = new Label("Best: " + GameSettings.getHighScore());
+    Label scoreLabel = new Label("Best: " + scoreManager.getHighScore());
         scoreLabel.setFont(Font.font(18));
         scoreLabel.getStyleClass().add("score-label");
 
@@ -47,8 +47,33 @@ public class MainMenu {
         rbMedium.getStyleClass().add("pixel-toggle");
         rbHard.getStyleClass().add("pixel-toggle");
 
-        Button startBtn = new Button("START");
-        startBtn.setMinWidth(160);
+        // Create START button with play.png image
+        Button startBtn = new Button();
+        startBtn.setPrefWidth(120);
+        startBtn.setPrefHeight(120);
+        startBtn.setStyle("-fx-padding: 0; -fx-background-color: transparent;");
+        
+        // Load and set play.png image
+        try {
+            java.io.File playFile = new java.io.File("res/play.png");
+            if (playFile.exists()) {
+                javafx.scene.image.Image playImage = new javafx.scene.image.Image(playFile.toURI().toString());
+                javafx.scene.image.ImageView playImageView = new javafx.scene.image.ImageView(playImage);
+                playImageView.setFitWidth(120);
+                playImageView.setFitHeight(120);
+                playImageView.setPreserveRatio(true);
+                startBtn.setGraphic(playImageView);
+            } else {
+                startBtn.setText("START");
+                startBtn.setMinWidth(160);
+                startBtn.getStyleClass().add("pixel-button");
+            }
+        } catch (Exception ex) {
+            startBtn.setText("START");
+            startBtn.setMinWidth(160);
+            startBtn.getStyleClass().add("pixel-button");
+        }
+        
         startBtn.getStyleClass().add("pixel-button");
         startBtn.setOnAction(e -> {
             // store chosen difficulty
@@ -58,9 +83,12 @@ public class MainMenu {
                 GameSettings.setDifficulty(GameSettings.Difficulty.FACILE);
             }
 
+            // Reset score for new game and create engine with scoreManager
+            scoreManager.resetCurrentScore();
+            
             // create and launch game scene using existing game code
             Canvas canvas = new Canvas(800, 600);
-            Engine engine = new Engine(canvas);
+            Engine engine = new Engine(canvas, scoreManager, stage);
             StackPane root = new StackPane(canvas);
             Scene gameScene = new Scene(root);
             engine.attachInput(gameScene);

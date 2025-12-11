@@ -6,8 +6,8 @@ import javafx.scene.paint.Color;
 public class MobileObstacle {
     public double x;
     public double y;
-    public final double w = 50; // width
-    public final double h = 40; // height
+    public final double w = 100; // width
+    public final double h = 80; // height
     public final double speed = 1.5; // pixels per frame (moving left)
 
     public MobileObstacle(double x, double y) {

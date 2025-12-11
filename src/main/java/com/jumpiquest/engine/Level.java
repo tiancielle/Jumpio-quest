@@ -10,6 +10,7 @@ import javafx.scene.canvas.GraphicsContext;
 public class Level {
     public final List<Obstacle> obstacles = new ArrayList<>();
     public final List<MobileObstacle> mobileObstacles = new ArrayList<>();
+    public final List<FoodItem> foodItems = new ArrayList<>();
     public int levelWidth; // dynamically set based on difficulty
     public final int levelHeight = 720;
     public final List<Obstacle> platforms = new ArrayList<>();
@@ -18,7 +19,7 @@ public class Level {
     public Point2D endPosition;
     private final double groundY = 500;
     public final double spawnX = 100;
-    public final double spawnY = groundY - 60; // player height 60
+    public final double spawnY = groundY - 80; // player height 60
 
     public Level() {
         // Set levelWidth based on difficulty
@@ -144,8 +145,8 @@ public class Level {
 
             // optionally place a wall somewhere on the platform we just created
             if (platformLen > 140 && rnd.nextDouble() < wallChance) {
-                double wallW = 30;
-                double wallH = rnd.nextDouble(wallHMin, wallHMax);
+                double wallW = 60; // hitbox width (small for jumping)
+                double wallH = 60; // hitbox height (small for jumping)
                 double minX = currentX + Math.max(60, platformLen * 0.15);
                 double maxX = currentX + Math.max(60, platformLen - Math.max(60, platformLen * 0.15));
                 if (minX < maxX) {
@@ -168,18 +169,52 @@ public class Level {
 
         // Generate mobile obstacles at specific positions
         generateMobileObstacles();
+        
+        // Generate food items along the level
+        generateFoodItems();
     }
 
     private void generateMobileObstacles() {
         mobileObstacles.clear();
-        // Spawn mobile obstacles at various positions along the level
+        // Spawn sheep obstacles at various positions along the level.
+        // SheepObstacle slides left with a sprite and will respawn to the right
+        // when it leaves the screen.
         double[] positions = {1200, 2000, 3000, 4000, 5200, 6500, 7200};
         double mobileY = groundY - 40; // ground level for mobile obstacles (40 is their height)
-        
+
         for (double pos : positions) {
             if (pos < levelWidth) {
-                mobileObstacles.add(new MobileObstacle(pos, mobileY));
+                mobileObstacles.add(new SheepObstacle(pos, mobileY, levelWidth));
             }
+        }
+    }
+
+    private void generateFoodItems() {
+        foodItems.clear();
+        ThreadLocalRandom rnd = ThreadLocalRandom.current();
+        
+        // Determine number of food items based on difficulty
+        int foodCount = 15; // default for MOYEN
+        com.jumpiquest.main.GameSettings.Difficulty diff = com.jumpiquest.main.GameSettings.getDifficulty();
+        if (diff == com.jumpiquest.main.GameSettings.Difficulty.FACILE) {
+            foodCount = 20; // more items for easy mode
+        } else if (diff == com.jumpiquest.main.GameSettings.Difficulty.DIFFICILE) {
+            foodCount = 12; // fewer items for hard mode
+        }
+        
+        // Generate food items at regular intervals with slight randomness
+        double spacing = (double) levelWidth / foodCount;
+        for (int i = 0; i < foodCount; i++) {
+            double baseX = spacing * i + 200; // start at 200 to avoid immediate spawn
+            double foodX = baseX + rnd.nextDouble(-80, 80); // randomize position within ±80px
+            
+            // Clamp to level bounds
+            foodX = Math.max(100, Math.min(levelWidth - 50, foodX));
+            
+            // Randomize Y position: slightly above ground or on platforms
+            double foodY = groundY - 30 - rnd.nextDouble(0, 100); // between -30 and -130 from ground
+            
+            foodItems.add(new FoodItem(foodX, foodY));
         }
     }
 
@@ -202,6 +237,11 @@ public class Level {
         // draw mobile obstacles
         for (MobileObstacle mob : mobileObstacles) {
             mob.render(gc);
+        }
+        
+        // draw food items
+        for (FoodItem food : foodItems) {
+            food.render(gc);
         }
     }
 

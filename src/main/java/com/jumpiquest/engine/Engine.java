@@ -1,7 +1,10 @@
 package com.jumpiquest.engine;
 
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.Set;
+
+import com.jumpiquest.main.ScoreManager;
 
 import javafx.animation.AnimationTimer;
 import javafx.scene.Scene;
@@ -10,8 +13,7 @@ import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.image.Image;
 import javafx.scene.input.KeyCode;
 import javafx.scene.paint.Color;
-import javafx.scene.text.Font;
-import javafx.scene.text.TextAlignment;
+import javafx.stage.Stage;
 
 public class Engine {
     private final Canvas canvas;
@@ -19,6 +21,7 @@ public class Engine {
     private final Player player;
     private final Level level;
     private final HUD hud;
+    private final ScoreManager scoreManager;
     private final Set<KeyCode> keys = new HashSet<>();
     private AnimationTimer timer;
     private long lastNs = 0;
@@ -26,13 +29,16 @@ public class Engine {
     private boolean gameWon = false;
     private double cameraX = 0; // horizontal camera offset in world coords
     private Image backgroundImage;
+    private Stage stage; // reference to primary stage
 
-    public Engine(Canvas canvas) {
+    public Engine(Canvas canvas, ScoreManager scoreManager, Stage stage) {
         this.canvas = canvas;
         this.gc = canvas.getGraphicsContext2D();
         this.player = new Player(100, 400);
         this.level = new Level();
-        this.hud = new HUD(player);
+        this.scoreManager = scoreManager;
+        this.stage = stage;
+        this.hud = new HUD(player, scoreManager);
         loadBackgroundImage();
     }
 
@@ -50,6 +56,38 @@ public class Engine {
     public void attachInput(Scene scene) {
         scene.setOnKeyPressed(e -> keys.add(e.getCode()));
         scene.setOnKeyReleased(e -> keys.remove(e.getCode()));
+        
+        // Handle mouse clicks for end screen buttons
+        scene.setOnMouseClicked(e -> {
+            if (gameOver || gameWon) {
+                handleEndScreenClick(e.getX(), e.getY());
+            }
+        });
+    }
+    
+    private void handleEndScreenClick(double mouseX, double mouseY) {
+        // Button positions and sizes
+        double centerX = canvas.getWidth() / 2.0;
+        double buttonY = canvas.getHeight() / 2.0 + 80;
+        double buttonW = 100;
+        double buttonH = 100;
+        
+        // New Game button (left side)
+        double newGameX = centerX - 120;
+        if (mouseX >= newGameX && mouseX <= newGameX + buttonW && 
+            mouseY >= buttonY && mouseY <= buttonY + buttonH) {
+            // Go back to main menu
+            stop();
+            com.jumpiquest.main.MainMenu.show(stage, new com.jumpiquest.main.ScoreManager());
+        }
+        
+        // Exit button (right side)
+        double exitX = centerX + 20;
+        if (mouseX >= exitX && mouseX <= exitX + buttonW && 
+            mouseY >= buttonY && mouseY <= buttonY + buttonH) {
+            // Close the game
+            System.exit(0);
+        }
     }
 
     public void start() {
@@ -103,6 +141,16 @@ public class Engine {
             }
         }
 
+        // Check food item collisions and remove collected items
+        Iterator<FoodItem> foodIterator = level.foodItems.iterator();
+        while (foodIterator.hasNext()) {
+            FoodItem food = foodIterator.next();
+            if (food.collidsWith(player.x, player.y, player.w, player.h)) {
+                scoreManager.addPoints(food.value);
+                foodIterator.remove();
+            }
+        }
+
         // detect falling into hole: if player top goes below ground level while over a hole
         double centerX = player.x + player.w / 2.0;
         if (level.isHoleAt(centerX) && player.y > level.getGroundY()) {
@@ -125,6 +173,7 @@ public class Engine {
         // check for level completion: player reached the end
         if (player.x >= level.levelWidth - 100) {
             gameWon = true;
+            scoreManager.updateHighScoreIfNeeded();
             if (timer != null) timer.stop();
         }
     }
@@ -173,27 +222,91 @@ public class Engine {
         // render HUD on top-left (always visible, not affected by camera)
         hud.render(gc);
         
-        // if game over, render an overlay message
+        // if game over, render an overlay message with buttons
         if (gameOver) {
-            gc.setFill(new Color(0, 0, 0, 0.6));
-            gc.fillRect(0, 0, canvas.getWidth(), canvas.getHeight());
-            gc.setFill(Color.WHITE);
-            gc.setFont(Font.font(48));
-            gc.setTextAlign(TextAlignment.CENTER);
-            gc.fillText("GAME OVER", canvas.getWidth() / 2.0, canvas.getHeight() / 2.0);
+            renderEndScreen(false);
         }
 
-        // if game won, render a victory message
+        // if game won, render a victory message with buttons
         if (gameWon) {
-            gc.setFill(new Color(0, 0, 0, 0.6));
-            gc.fillRect(0, 0, canvas.getWidth(), canvas.getHeight());
-            gc.setFill(Color.GOLD);
-            gc.setFont(Font.font(48));
-            gc.setTextAlign(TextAlignment.CENTER);
-            gc.fillText("LEVEL COMPLETE!", canvas.getWidth() / 2.0, canvas.getHeight() / 2.0 - 30);
-            gc.setFill(Color.WHITE);
-            gc.setFont(Font.font(24));
-            gc.fillText("You reached the end!", canvas.getWidth() / 2.0, canvas.getHeight() / 2.0 + 30);
+            renderEndScreen(true);
+        }
+    }
+    
+    private void renderEndScreen(boolean isWon) {
+        // Load button images (static so they load once)
+        if (newGameImage == null) loadButtonImages();
+        
+        // Semi-transparent overlay
+        gc.setFill(new Color(0, 0, 0, 0.6));
+        gc.fillRect(0, 0, canvas.getWidth(), canvas.getHeight());
+        
+        double centerX = canvas.getWidth() / 2.0;
+        double centerY = canvas.getHeight() / 2.0;
+        
+        // Title
+        gc.setFill(isWon ? Color.GOLD : Color.RED);
+        gc.setFont(javafx.scene.text.Font.font(60));
+        gc.setTextAlign(javafx.scene.text.TextAlignment.CENTER);
+        String title = isWon ? "LEVEL COMPLETE!" : "GAME OVER";
+        gc.fillText(title, centerX, centerY - 60);
+        
+        // Score info
+        gc.setFill(Color.WHITE);
+        gc.setFont(javafx.scene.text.Font.font(30));
+        gc.fillText("Score: " + scoreManager.getCurrentScore(), centerX, centerY);
+        gc.fillText("Best: " + scoreManager.getHighScore(), centerX, centerY + 40);
+        
+        // Buttons with images
+        double buttonY = centerY + 80;
+        double buttonW = 100;
+        double buttonH = 100;
+        double newGameX = centerX - 120;
+        double exitX = centerX + 20;
+        
+        // New Game button with image
+        if (newGameImage != null) {
+            gc.drawImage(newGameImage, newGameX, buttonY, buttonW, buttonH);
+        } else {
+            gc.setFill(Color.LIGHTGREEN);
+            gc.fillRect(newGameX, buttonY, buttonW, buttonH);
+            gc.setFill(Color.BLACK);
+            gc.setFont(javafx.scene.text.Font.font(150));
+            gc.fillText("NEW GAME", newGameX + buttonW / 2.0, buttonY + buttonH / 2.0);
+        }
+        
+        // Exit button with image
+        if (exitImage != null) {
+            gc.drawImage(exitImage, exitX, buttonY, buttonW, buttonH);
+        } else {
+            gc.setFill(Color.LIGHTCORAL);
+            gc.fillRect(exitX, buttonY, buttonW, buttonH);
+            gc.setFill(Color.BLACK);
+            gc.setFont(javafx.scene.text.Font.font(100));
+            gc.fillText("EXIT", exitX + buttonW / 2.0, buttonY + buttonH / 2.0);
+        }
+    }
+    
+    private Image newGameImage = null;
+    private Image exitImage = null;
+    
+    private void loadButtonImages() {
+        try {
+            java.io.File newGameFile = new java.io.File("res/newgame.png");
+            if (newGameFile.exists()) {
+                newGameImage = new Image(newGameFile.toURI().toString());
+            }
+        } catch (Exception e) {
+            System.out.println("Could not load newgame.png: " + e.getMessage());
+        }
+        
+        try {
+            java.io.File exitFile = new java.io.File("res/exit.png");
+            if (exitFile.exists()) {
+                exitImage = new Image(exitFile.toURI().toString());
+            }
+        } catch (Exception e) {
+            System.out.println("Could not load exit.png: " + e.getMessage());
         }
     }
 }

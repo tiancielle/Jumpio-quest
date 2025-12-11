@@ -10,7 +10,8 @@ public class Main extends Application {
 
     @Override
     public void start(Stage stage) {
-        // Show main menu first
-        MainMenu.show(stage);
+        // Show main menu first. Create a ScoreManager and pass it to the menu.
+        ScoreManager scoreManager = new ScoreManager();
+        MainMenu.show(stage, scoreManager);
     }
 }

@@ -1,13 +1,19 @@
 package com.jumpiquest.engine;
 
+import com.jumpiquest.main.ScoreManager;
+
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
+import javafx.scene.text.Font;
+import javafx.scene.text.TextAlignment;
 
 public class HUD {
     private final Player player;
+    private final ScoreManager scoreManager;
 
-    public HUD(Player player) {
+    public HUD(Player player, ScoreManager scoreManager) {
         this.player = player;
+        this.scoreManager = scoreManager;
     }
 
     public void render(GraphicsContext gc) {
@@ -26,6 +32,13 @@ public class HUD {
                 drawHeartEmpty(gc, x, startY, size);
             }
         }
+        
+        // Draw score text
+        gc.setFill(Color.WHITE);
+        gc.setFont(Font.font(18));
+        gc.setTextAlign(TextAlignment.LEFT);
+        gc.fillText("Score: " + scoreManager.getCurrentScore(), 20, 80);
+        gc.fillText("Best: " + scoreManager.getHighScore(), 20, 105);
     }
 
     private void drawHeartFull(GraphicsContext gc, double x, double y, double size, Color color) {

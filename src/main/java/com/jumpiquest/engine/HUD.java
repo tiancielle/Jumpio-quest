@@ -17,21 +17,7 @@ public class HUD {
     }
 
     public void render(GraphicsContext gc) {
-        // draw 3 hearts at (20,20), each 30x30, spaced by 40 px
-        double startX = 20;
-        double startY = 20;
-        double size = 30;
-        double spacing = 40;
-
-        int lives = player.getLives();
-        for (int i = 0; i < 3; i++) {
-            double x = startX + i * spacing;
-            if (i < lives) {
-                drawHeartFull(gc, x, startY, size, Color.RED);
-            } else {
-                drawHeartEmpty(gc, x, startY, size);
-            }
-        }
+        // Hearts are now managed by HeartManager (ImageView nodes). HUD only draws score.
         
         // Draw score text
         gc.setFill(Color.WHITE);

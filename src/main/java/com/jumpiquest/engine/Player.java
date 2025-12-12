@@ -6,7 +6,13 @@ import javafx.scene.paint.Color;
 public class Player {
     double x, y;
     double vx, vy;
-    final double w = 40, h = 60;
+    // Dimensions for rendering (visual sprite size)
+    double w, h;
+    // Hitbox dimensions (smaller than visual size, for collision detection)
+    private double hitboxWidth;
+    private double hitboxHeight;
+    // Hitbox scale factor: hitbox = sprite * scale
+    private static final double HITBOX_SCALE = 0.65;  // 65% of sprite size
     final double speed = 240;
     final double jumpSpeed = 600;
     final double gravity = 1600;
@@ -19,10 +25,20 @@ public class Player {
     private double invincibilityTimer = 0.0; // seconds remaining
     private double blinkTimer = 0.0; // toggles visibility
     private boolean visible = true; // used for blinking while invincible
+    
+    // Animation system
+    private PlayerAnimation animation;
 
     public Player(double x, double y) {
         this.x = x;
         this.y = y;
+        this.animation = new PlayerAnimation();
+        // Set player visual dimensions from scaled animation
+        this.w = animation.getScaledWidth();
+        this.h = animation.getScaledHeight();
+        // Calculate reduced hitbox (65% of sprite size, centered on player)
+        this.hitboxWidth = w * HITBOX_SCALE;
+        this.hitboxHeight = h * HITBOX_SCALE;
     }
 
     public void update(double dt, boolean left, boolean right, boolean jump, Level level) {
@@ -79,12 +95,38 @@ public class Player {
         } else {
             visible = true;
         }
+        
+        // Update animation based on player state
+        updateAnimation(left, right, jump);
+        
+        // Update animation frames
+        animation.update(dt);
+    }
+    
+    /**
+     * Update animation state based on player input and status.
+     */
+    private void updateAnimation(boolean left, boolean right, boolean jump) {
+        if (!onGround) {
+            // Player is jumping/falling
+            animation.setStateJump();
+        } else if (left) {
+            // Moving left
+            animation.setStateRunLeft();
+        } else if (right) {
+            // Moving right
+            animation.setStateRunRight();
+        } else {
+            // Idle
+            animation.setStateIdle();
+        }
     }
 
     public void render(GraphicsContext gc) {
         if (!visible) return;
-        gc.setFill(Color.CORNFLOWERBLUE);
-        gc.fillRect(x, y, w, h);
+        
+        // Draw sprite using animation system (scaled automatically)
+        animation.render(gc, x, y);
     }
 
     // --- Life system methods ---
@@ -127,5 +169,47 @@ public class Player {
         vx = 0;
         vy = 0;
         // Engine can check getLives() == 0 for game over
+    }
+    
+    /**
+     * Get the left edge of the hitbox (centered on player).
+     */
+    public double getHitboxLeft() {
+        return x + (w - hitboxWidth) / 2.0;
+    }
+    
+    /**
+     * Get the right edge of the hitbox (centered on player).
+     */
+    public double getHitboxRight() {
+        return getHitboxLeft() + hitboxWidth;
+    }
+    
+    /**
+     * Get the top edge of the hitbox (centered on player).
+     */
+    public double getHitboxTop() {
+        return y + (h - hitboxHeight) / 2.0;
+    }
+    
+    /**
+     * Get the bottom edge of the hitbox (centered on player).
+     */
+    public double getHitboxBottom() {
+        return getHitboxTop() + hitboxHeight;
+    }
+    
+    /**
+     * Get the hitbox width.
+     */
+    public double getHitboxWidth() {
+        return hitboxWidth;
+    }
+    
+    /**
+     * Get the hitbox height.
+     */
+    public double getHitboxHeight() {
+        return hitboxHeight;
     }
 }

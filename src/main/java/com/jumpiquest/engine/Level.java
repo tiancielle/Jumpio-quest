@@ -260,13 +260,19 @@ public class Level {
             double wallLeft = o.x;
             double wallRight = o.x + o.w;
             double wallTop = groundY - o.h;
-            double playerBottom = p.y + p.h;
-            if (playerBottom > wallTop && p.y < groundY && p.x + p.w > wallLeft && p.x < wallRight) {
+            
+            // Use hitbox for collision detection instead of full sprite dimensions
+            double hitboxLeft = p.getHitboxLeft();
+            double hitboxRight = p.getHitboxRight();
+            double hitboxTop = p.getHitboxTop();
+            double hitboxBottom = p.getHitboxBottom();
+            
+            if (hitboxBottom > wallTop && hitboxTop < groundY && hitboxRight > wallLeft && hitboxLeft < wallRight) {
                 // collision
                 if (p.vx > 0) {
-                    p.x = wallLeft - p.w;
+                    p.x = wallLeft - (hitboxRight - p.x); // push player left based on hitbox right edge
                 } else if (p.vx < 0) {
-                    p.x = wallRight;
+                    p.x = wallRight + (p.x - hitboxLeft); // push player right based on hitbox left edge
                 }
                 p.vx = 0;
             }

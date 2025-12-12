@@ -88,8 +88,8 @@ public class MainMenu {
             
             // create and launch game scene using existing game code
             Canvas canvas = new Canvas(800, 600);
-            Engine engine = new Engine(canvas, scoreManager, stage);
             StackPane root = new StackPane(canvas);
+            Engine engine = new Engine(canvas, scoreManager, stage, root);
             Scene gameScene = new Scene(root);
             engine.attachInput(gameScene);
 

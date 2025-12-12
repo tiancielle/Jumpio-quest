@@ -12,6 +12,7 @@ import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.image.Image;
 import javafx.scene.input.KeyCode;
+import javafx.scene.layout.Pane;
 import javafx.scene.paint.Color;
 import javafx.stage.Stage;
 
@@ -30,6 +31,9 @@ public class Engine {
     private double cameraX = 0; // horizontal camera offset in world coords
     private Image backgroundImage;
     private Stage stage; // reference to primary stage
+    private Pane rootPane = null; // UI root to add ImageView hearts
+    private HeartManager heartManager = null;
+    private int lastLives = -1;
 
     public Engine(Canvas canvas, ScoreManager scoreManager, Stage stage) {
         this.canvas = canvas;
@@ -40,6 +44,20 @@ public class Engine {
         this.stage = stage;
         this.hud = new HUD(player, scoreManager);
         loadBackgroundImage();
+    }
+
+    /**
+     * Overloaded constructor that accepts a root Pane so UI ImageView hearts can be added.
+     */
+    public Engine(Canvas canvas, ScoreManager scoreManager, Stage stage, Pane root) {
+        this(canvas, scoreManager, stage);
+        this.rootPane = root;
+        try {
+            this.heartManager = new HeartManager(player, rootPane);
+            this.lastLives = player.getLives();
+        } catch (Exception e) {
+            System.out.println("Could not initialize HeartManager: " + e.getMessage());
+        }
     }
 
     private void loadBackgroundImage() {
@@ -127,8 +145,9 @@ public class Engine {
         for (MobileObstacle mob : level.mobileObstacles) {
             mob.update(dt);
             
-            // Check collision with player
-            if (mob.collidsWith(player.x, player.y, player.w, player.h)) {
+            // Check collision with player hitbox (not full sprite size)
+            if (mob.collidsWith(player.getHitboxLeft(), player.getHitboxTop(), 
+                                player.getHitboxWidth(), player.getHitboxHeight())) {
                 player.takeDamage();
                 if (player.getLives() <= 0) {
                     gameOver = true;
@@ -149,15 +168,16 @@ public class Engine {
         Iterator<FoodItem> foodIterator = level.foodItems.iterator();
         while (foodIterator.hasNext()) {
             FoodItem food = foodIterator.next();
-            if (food.collidsWith(player.x, player.y, player.w, player.h)) {
+            if (food.collidsWith(player.getHitboxLeft(), player.getHitboxTop(), 
+                                 player.getHitboxWidth(), player.getHitboxHeight())) {
                 scoreManager.addPoints(food.value);
                 foodIterator.remove();
             }
         }
 
-        // detect falling into hole: if player top goes below ground level while over a hole
-        double centerX = player.x + player.w / 2.0;
-        if (level.isHoleAt(centerX) && player.y > level.getGroundY()) {
+        // detect falling into hole: if player hitbox center goes below ground level while over a hole
+        double centerX = player.getHitboxLeft() + player.getHitboxWidth() / 2.0;
+        if (level.isHoleAt(centerX) && player.getHitboxBottom() > level.getGroundY()) {
             // player fell into a hole
             player.takeDamage();
             if (player.getLives() <= 0) {
@@ -179,6 +199,15 @@ public class Engine {
             gameWon = true;
             scoreManager.updateHighScoreIfNeeded();
             if (timer != null) timer.stop();
+        }
+
+        // If HeartManager exists, keep hearts in sync when lives change
+        if (heartManager != null) {
+            int curLives = player.getLives();
+            if (curLives != lastLives) {
+                heartManager.updateHearts();
+                lastLives = curLives;
+            }
         }
     }
 

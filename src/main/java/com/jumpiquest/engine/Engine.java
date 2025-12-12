@@ -66,24 +66,28 @@ public class Engine {
     }
     
     private void handleEndScreenClick(double mouseX, double mouseY) {
-        // Button positions and sizes
+        // Button positions and sizes (centered, bottom) - MUST MATCH renderEndScreen
         double centerX = canvas.getWidth() / 2.0;
-        double buttonY = canvas.getHeight() / 2.0 + 80;
-        double buttonW = 100;
-        double buttonH = 100;
-        
-        // New Game button (left side)
-        double newGameX = centerX - 120;
-        if (mouseX >= newGameX && mouseX <= newGameX + buttonW && 
+        double buttonW = 150;
+        double buttonH = 50;
+        double spacing = 20;
+        double totalWidth = buttonW * 2 + spacing;
+        double startX = centerX - totalWidth / 2.0;
+        double newGameX = startX;
+        double exitX = startX + buttonW + spacing;
+        double buttonY = canvas.getHeight() - 200; // MUST MATCH renderEndScreen
+
+        // New Game button (left)
+        if (mouseX >= newGameX && mouseX <= newGameX + buttonW &&
             mouseY >= buttonY && mouseY <= buttonY + buttonH) {
             // Go back to main menu
             stop();
             com.jumpiquest.main.MainMenu.show(stage, new com.jumpiquest.main.ScoreManager());
+            return;
         }
-        
-        // Exit button (right side)
-        double exitX = centerX + 20;
-        if (mouseX >= exitX && mouseX <= exitX + buttonW && 
+
+        // Exit button (right)
+        if (mouseX >= exitX && mouseX <= exitX + buttonW &&
             mouseY >= buttonY && mouseY <= buttonY + buttonH) {
             // Close the game
             System.exit(0);
@@ -257,34 +261,32 @@ public class Engine {
         gc.fillText("Score: " + scoreManager.getCurrentScore(), centerX, centerY);
         gc.fillText("Best: " + scoreManager.getHighScore(), centerX, centerY + 40);
         
-        // Buttons with images
-        double buttonY = centerY + 80;
-        double buttonW = 100;
-        double buttonH = 100;
-        double newGameX = centerX - 120;
-        double exitX = centerX + 20;
+        // Buttons with images (centered horizontally, near bottom)
+        double buttonW = 150;
+        double buttonH = 50;
+        double spacing = 20;
+        double totalWidth = buttonW * 2 + spacing;
+        double startX = centerX - totalWidth / 2.0;
+        double newGameX = startX;
+        double exitX = startX + buttonW + spacing;
+        double buttonY = canvas.getHeight() - 200; // place buttons near bottom
+
+        // New Game button
+        gc.setFill(Color.BLUE);
+        gc.fillRect(newGameX, buttonY, buttonW, buttonH);
+        gc.setFill(Color.WHITE);
+        gc.setFont(javafx.scene.text.Font.font(25));
+        gc.setTextAlign(javafx.scene.text.TextAlignment.CENTER);
+        gc.fillText("New Game", newGameX + buttonW / 2.0, buttonY + buttonH / 2.0 + 8);
+
+        // Exit button
+        gc.setFill(Color.LIGHTBLUE);
+        gc.fillRect(exitX, buttonY, buttonW, buttonH);
+        gc.setFill(Color.BLACK);
+        gc.setFont(javafx.scene.text.Font.font(25));
+        gc.setTextAlign(javafx.scene.text.TextAlignment.CENTER);
+        gc.fillText("Exit", exitX + buttonW / 2.0, buttonY + buttonH / 2.0 + 8);
         
-        // New Game button with image
-        if (newGameImage != null) {
-            gc.drawImage(newGameImage, newGameX, buttonY, buttonW, buttonH);
-        } else {
-            gc.setFill(Color.LIGHTGREEN);
-            gc.fillRect(newGameX, buttonY, buttonW, buttonH);
-            gc.setFill(Color.BLACK);
-            gc.setFont(javafx.scene.text.Font.font(150));
-            gc.fillText("NEW GAME", newGameX + buttonW / 2.0, buttonY + buttonH / 2.0);
-        }
-        
-        // Exit button with image
-        if (exitImage != null) {
-            gc.drawImage(exitImage, exitX, buttonY, buttonW, buttonH);
-        } else {
-            gc.setFill(Color.LIGHTCORAL);
-            gc.fillRect(exitX, buttonY, buttonW, buttonH);
-            gc.setFill(Color.BLACK);
-            gc.setFont(javafx.scene.text.Font.font(100));
-            gc.fillText("EXIT", exitX + buttonW / 2.0, buttonY + buttonH / 2.0);
-        }
     }
     
     private Image newGameImage = null;
@@ -303,7 +305,7 @@ public class Engine {
         try {
             java.io.File exitFile = new java.io.File("res/exit.png");
             if (exitFile.exists()) {
-                exitImage = new Image(exitFile.toURI().toString());
+                this.exitImage = new Image(exitFile.toURI().toString());
             }
         } catch (Exception e) {
             System.out.println("Could not load exit.png: " + e.getMessage());

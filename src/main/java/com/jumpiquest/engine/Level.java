@@ -17,9 +17,20 @@ public class Level {
     public final List<Obstacle> walls = new ArrayList<>();
     public Point2D startPosition;
     public Point2D endPosition;
+    public EndHouse house = null;
     private final double groundY = 500;
     public final double spawnX = 100;
     public final double spawnY = groundY - 80; // player height 60
+
+    // Generation parameters (initialized per difficulty)
+    private double platformMin = 250, platformMax = 500;
+    private double holeMin = 50, holeMax = 140;
+    private double holeSpawnChance = 0.8; // probability to spawn a hole after platform
+    private double wallChance = 0.55;
+    private double wallHMin = 40, wallHMax = 90;
+    private double gapShortMin = 30, gapShortMax = 60;
+    private double gapMediumMin = 60, gapMediumMax = 100;
+    private double gapLongMin = 100, gapLongMax = 140;
 
     public Level() {
         // Set levelWidth based on difficulty
@@ -31,7 +42,10 @@ public class Level {
         } else {
             this.levelWidth = 6000; // MOYEN
         }
-        
+
+        // Initialize generation parameters according to difficulty
+        initDifficultySettings(diff);
+
         // generate the level procedurally
         generateLevel();
     }
@@ -52,69 +66,20 @@ public class Level {
         double currentX = 0.0;
         ThreadLocalRandom rnd = ThreadLocalRandom.current();
 
-        // Adjust generation parameters based on selected difficulty
-        com.jumpiquest.main.GameSettings.Difficulty diff = com.jumpiquest.main.GameSettings.getDifficulty();
-
-        double platformMin = 250, platformMax = 500;
-        double holeMin = 50, holeMax = 140;
-        double holeSpawnChance = 0.8; // probability to spawn a hole after platform
-        double wallChance = 0.55;
-        double wallHMin = 40, wallHMax = 90;
-        double gapShortMin = 30, gapShortMax = 60;
-        double gapMediumMin = 60, gapMediumMax = 100;
-        double gapLongMin = 100, gapLongMax = 140;
-
-        if (diff == com.jumpiquest.main.GameSettings.Difficulty.FACILE) {
-            // Easy: longer platforms, smaller holes, fewer obstacles, wider gaps
-            platformMin = 350;
-            platformMax = 650;
-            holeMin = 40;
-            holeMax = 80;
-            holeSpawnChance = 0.50; // only 50% chance to spawn holes (fewer obstacles)
-            wallChance = 0.20; // very few walls
-            wallHMin = 25;
-            wallHMax = 60;
-            gapShortMin = 20;
-            gapShortMax = 50;
-            gapMediumMin = 50;
-            gapMediumMax = 80;
-            gapLongMin = 80;
-            gapLongMax = 120;
-        } else if (diff == com.jumpiquest.main.GameSettings.Difficulty.DIFFICILE) {
-            // Hard: shorter platforms, larger holes, many obstacles, narrow gaps
-            platformMin = 180;
-            platformMax = 380;
-            holeMin = 100;
-            holeMax = 220;
-            holeSpawnChance = 0.95; // almost always spawn holes (many obstacles)
-            wallChance = 0.75; // many walls
-            wallHMin = 60;
-            wallHMax = 120;
-            gapShortMin = 40;
-            gapShortMax = 80;
-            gapMediumMin = 80;
-            gapMediumMax = 130;
-            gapLongMin = 130;
-            gapLongMax = 180;
-        } else {
-            // Medium (default): balanced approach
-            platformMin = 250;
-            platformMax = 500;
-            holeMin = 60;
-            holeMax = 140;
-            holeSpawnChance = 0.75; // 75% chance to spawn holes
-            wallChance = 0.50;
-            wallHMin = 40;
-            wallHMax = 90;
-            gapShortMin = 30;
-            gapShortMax = 60;
-            gapMediumMin = 60;
-            gapMediumMax = 100;
-            gapLongMin = 100;
-            gapLongMax = 140;
-        }
+        // generation parameters already initialized by initDifficultySettings in constructor
 
         while (currentX < levelWidth) {
+            // If we are within the final safe zone (last 600px), create a final platform to the end and stop
+            double remaining = levelWidth - currentX;
+            if (remaining <= 600) {
+                double finalLen = Math.max(0, remaining);
+                if (finalLen > 0) {
+                    Obstacle finalPlatform = new Obstacle(Obstacle.Type.PLATFORM, currentX, finalLen, 0);
+                    platforms.add(finalPlatform);
+                }
+                break; // no more obstacles in safe zone
+            }
+
             // create a platform segment
             double platformLen = rnd.nextDouble(platformMin, platformMax);
             if (currentX + platformLen > levelWidth) {
@@ -127,8 +92,8 @@ public class Level {
             double holeSize = 0;
             double holeX = currentX + platformLen;
             
-            // Only spawn hole if random chance passes
-            if (rnd.nextDouble() < holeSpawnChance) {
+            // Only spawn hole if random chance passes and hole start is not in final safe zone
+            if (rnd.nextDouble() < holeSpawnChance && holeX < levelWidth - 600) {
                 holeSize = rnd.nextDouble(holeMin, holeMax);
                 // if the hole would exceed level, clamp
                 if (holeX >= levelWidth) {
@@ -144,6 +109,7 @@ public class Level {
             }
 
             // optionally place a wall somewhere on the platform we just created
+            // avoid placing walls in the final safe zone
             if (platformLen > 140 && rnd.nextDouble() < wallChance) {
                 double wallW = 60; // hitbox width (small for jumping)
                 double wallH = 60; // hitbox height (small for jumping)
@@ -151,9 +117,14 @@ public class Level {
                 double maxX = currentX + Math.max(60, platformLen - Math.max(60, platformLen * 0.15));
                 if (minX < maxX) {
                     double wallX = rnd.nextDouble(minX, maxX);
+                    if (wallX >= levelWidth - 600) {
+                        // skip wall placement if it would be inside final safe zone
+                        // simply skip adding this wall
+                    } else {
                     Obstacle wall = new Obstacle(Obstacle.Type.WALL, wallX, wallW, wallH);
                     walls.add(wall);
                     obstacles.add(wall);
+                    }
                 }
             }
 
@@ -172,6 +143,21 @@ public class Level {
         
         // Generate food items along the level
         generateFoodItems();
+
+        // place an end-house at a fixed X based on difficulty (so it's always at the intended world coordinate)
+        double houseW = 256;
+        double houseH = 256;
+        double targetX;
+        com.jumpiquest.main.GameSettings.Difficulty diff2 = com.jumpiquest.main.GameSettings.getDifficulty();
+        if (diff2 == com.jumpiquest.main.GameSettings.Difficulty.FACILE) targetX = 5000;
+        else if (diff2 == com.jumpiquest.main.GameSettings.Difficulty.DIFFICILE) targetX = 8000;
+        else targetX = 6000; // MOYEN
+        // clamp so house fits inside level bounds
+        double hx = Math.max(0, Math.min(targetX, levelWidth - (houseW + 20)));
+        double hy = groundY - houseH;
+        house = new EndHouse(hx, hy, houseW, houseH);
+        // set endPosition near house center so legacy checks work
+        endPosition = new javafx.geometry.Point2D(hx + houseW / 2.0, hy);
     }
 
     private void generateMobileObstacles() {
@@ -183,7 +169,8 @@ public class Level {
         double mobileY = groundY - 40; // ground level for mobile obstacles (40 is their height)
 
         for (double pos : positions) {
-            if (pos < levelWidth) {
+            // avoid spawning mobile obstacles inside the final safe zone
+            if (pos < levelWidth - 600) {
                 mobileObstacles.add(new SheepObstacle(pos, mobileY, levelWidth));
             }
         }
@@ -243,6 +230,11 @@ public class Level {
         for (FoodItem food : foodItems) {
             food.render(gc);
         }
+
+        // draw end house if present
+        if (house != null) {
+            house.render(gc);
+        }
     }
 
     public boolean isHoleAt(double centerX) {
@@ -257,9 +249,14 @@ public class Level {
     public void handleWallCollisions(Player p) {
         for (Obstacle o : obstacles) {
             if (o.type != Obstacle.Type.WALL) continue;
-            double wallLeft = o.x;
-            double wallRight = o.x + o.w;
-            double wallTop = groundY - o.h;
+            // shrink collision hitbox relative to visual hitbox so walls are easier to pass
+            double insetX = o.w * 0.20; // 20% inset on each horizontal side
+            double hitW = Math.max(8, o.w - insetX * 2);
+            double wallLeft = o.x + insetX;
+            double wallRight = wallLeft + hitW;
+            // reduce vertical collision height slightly so small head overlaps don't block
+            double heightInset = o.h * 0.25; // ignore top 25% of wall for collisions
+            double wallTop = groundY - (o.h - heightInset);
             
             // Use hitbox for collision detection instead of full sprite dimensions
             double hitboxLeft = p.getHitboxLeft();
@@ -276,6 +273,66 @@ public class Level {
                 }
                 p.vx = 0;
             }
+        }
+    }
+
+    /**
+     * Initialize generation parameters according to difficulty.
+     */
+    private void initDifficultySettings(com.jumpiquest.main.GameSettings.Difficulty diff) {
+        // Defaults (MEDIUM)
+        platformMin = 250;
+        platformMax = 500;
+        holeMin = 60;
+        holeMax = 140;
+        holeSpawnChance = 0.75;
+        wallChance = 0.50;
+        wallHMin = 40;
+        wallHMax = 90;
+        gapShortMin = 30;
+        gapShortMax = 60;
+        gapMediumMin = 60;
+        gapMediumMax = 100;
+        gapLongMin = 100;
+        gapLongMax = 140;
+
+        if (diff == com.jumpiquest.main.GameSettings.Difficulty.FACILE) {
+            // Easy: longer platforms, smaller holes, fewer obstacles, wider gaps
+            platformMin = 350;
+            platformMax = 650;
+            holeMin = 40;
+            holeMax = 80;
+            holeSpawnChance = 0.50;
+            wallChance = 0.20;
+            wallHMin = 25;
+            wallHMax = 60;
+            gapShortMin = 20;
+            gapShortMax = 50;
+            gapMediumMin = 50;
+            gapMediumMax = 80;
+            gapLongMin = 80;
+            gapLongMax = 120;
+        } else if (diff == com.jumpiquest.main.GameSettings.Difficulty.DIFFICILE) {
+            // Hard: shorter platforms, but holes kept within reachable bounds
+            platformMin = 180;
+            platformMax = 380;
+            // reduce extreme hole sizes so jumps remain possible
+            holeMin = 80;
+            holeMax = 160;
+            // slightly lower spawn chance to avoid impossible sequences
+            holeSpawnChance = 0.85;
+            wallChance = 0.70;
+            wallHMin = 60;
+            wallHMax = 120;
+            gapShortMin = 40;
+            gapShortMax = 80;
+            gapMediumMin = 80;
+            gapMediumMax = 130;
+            gapLongMin = 130;
+            gapLongMax = 180;
+            // make platforms slightly longer on hard to leave landing spots
+            platformMin *= 1.05;
+            platformMax *= 1.05;
         }
     }
 }

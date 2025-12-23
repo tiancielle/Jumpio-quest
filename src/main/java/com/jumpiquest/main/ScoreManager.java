@@ -5,14 +5,27 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class ScoreManager {
     private int currentScore = 0;
     private int highScore = 0;
     private static final String HIGHSCORE_FILE = "highscore.txt";
+    private final DatabaseManager db;
+    // single threaded executor for DB writes so we never block UI/game loop
+    private final ExecutorService dbWriter = Executors.newSingleThreadExecutor(r -> {
+        Thread t = new Thread(r, "db-writer");
+        t.setDaemon(true);
+        return t;
+    });
 
     public ScoreManager() {
-        loadHighScore();
+        db = new DatabaseManager();
+        db.initDatabase();
+        // load high score from DB (fallback to file if DB returns 0)
+        highScore = db.getHighScore();
+        if (highScore <= 0) loadHighScore();
     }
 
     /**
@@ -82,14 +95,18 @@ public class ScoreManager {
      * Save high score to file.
      */
     public void saveHighScore() {
+        // write to file (keep legacy behavior)
         try {
             FileWriter writer = new FileWriter(HIGHSCORE_FILE);
             writer.write(String.valueOf(highScore));
             writer.close();
-            System.out.println("High score saved: " + highScore);
+            System.out.println("High score saved (file): " + highScore);
         } catch (IOException e) {
             System.out.println("Error saving high score: " + e.getMessage());
         }
+        // also persist to DB asynchronously
+        final int toSave = highScore;
+        dbWriter.submit(() -> db.saveScore(toSave));
     }
 
     /**
@@ -103,5 +120,20 @@ public class ScoreManager {
             return true;
         }
         return false;
+    }
+
+    /**
+     * Save the current score to DB (asynchronously) without blocking the game loop.
+     */
+    public void saveCurrentScoreAsync() {
+        final int toSave = currentScore;
+        dbWriter.submit(() -> db.saveScore(toSave));
+    }
+
+    /**
+     * Shutdown DB writer executor cleanly (call on application exit if desired).
+     */
+    public void shutdown() {
+        dbWriter.shutdown();
     }
 }

@@ -1,14 +1,16 @@
 com\jumpiquest\engine\Player.class
 com\jumpiquest\main\GameSettings.class
+com\jumpiquest\engine\EndHouse.class
 com\jumpiquest\engine\MobileObstacle.class
+com\jumpiquest\main\EndScreen.class
 com\jumpiquest\main\MainMenu.class
+com\jumpiquest\main\DatabaseManager.class
 com\jumpiquest\engine\HUD.class
 com\jumpiquest\engine\Level.class
 com\jumpiquest\engine\Engine$1.class
 com\jumpiquest\engine\PlayerAnimation.class
 com\jumpiquest\main\Main.class
 com\jumpiquest\engine\Obstacle.class
-com\jumpiquest\main\GameEndScreen.class
 com\jumpiquest\engine\Engine.class
 com\jumpiquest\engine\SheepObstacle.class
 com\jumpiquest\engine\Obstacle$Type.class

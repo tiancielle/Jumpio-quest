@@ -7,6 +7,7 @@ import java.util.Set;
 import com.jumpiquest.main.ScoreManager;
 
 import javafx.animation.AnimationTimer;
+import javafx.application.Platform;
 import javafx.scene.Scene;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
@@ -29,16 +30,25 @@ public class Engine {
     private boolean gameOver = false;
     private boolean gameWon = false;
     private double cameraX = 0; // horizontal camera offset in world coords
+    // Last checkpoint X position (updated while player is on ground)
+    private double lastCheckpointX = 0;
     private Image backgroundImage;
     private Stage stage; // reference to primary stage
     private Pane rootPane = null; // UI root to add ImageView hearts
     private HeartManager heartManager = null;
     private int lastLives = -1;
+    // House / entry state
+    private boolean blockInput = false;
+    private boolean enteringHouse = false;
+    private double enterTimer = 0.0;
+    private double playerAlpha = 1.0;
 
     public Engine(Canvas canvas, ScoreManager scoreManager, Stage stage) {
         this.canvas = canvas;
         this.gc = canvas.getGraphicsContext2D();
         this.player = new Player(100, 400);
+        // initialize checkpoint to player's starting X
+        this.lastCheckpointX = this.player.x;
         this.level = new Level();
         this.scoreManager = scoreManager;
         this.stage = stage;
@@ -150,15 +160,20 @@ public class Engine {
                                 player.getHitboxWidth(), player.getHitboxHeight())) {
                 player.takeDamage();
                 if (player.getLives() <= 0) {
-                    gameOver = true;
-                    if (timer != null) timer.stop();
+                    // stop game and show end screen (loss)
+                    showEndScreen(false);
+                    return; // bail out of update
                 } else {
-                    // respawn the player at spawn point
-                    player.x = level.spawnX;
-                    player.y = level.spawnY;
+                    // respawn the player at last checkpoint minus 100px (safety), clamp >= 0
+                    double respawnX = Math.max(0, lastCheckpointX - 100.0);
+                    player.x = respawnX;
+                    // place player on the ground at the respawn X
+                    player.y = level.getGroundY() - player.h;
                     player.vx = 0;
                     player.vy = 0;
                     player.onGround = true;
+                    // reposition camera to keep player visible
+                    cameraX = Math.max(0, player.x - canvas.getWidth() / 3.0);
                 }
                 break; // only take damage once per frame
             }
@@ -175,30 +190,83 @@ public class Engine {
             }
         }
 
+        // Check for entering the end-house (if present)
+        try {
+            if (level.house != null) {
+                javafx.geometry.Rectangle2D houseBounds = level.house.getBounds();
+                double phLeft = player.getHitboxLeft();
+                double phTop = player.getHitboxTop();
+                double phW = player.getHitboxWidth();
+                double phH = player.getHitboxHeight();
+
+                if (!enteringHouse && houseBounds.intersects(phLeft, phTop, phW, phH)) {
+                    // begin entering sequence
+                    enteringHouse = true;
+                    blockInput = true;
+                    enterTimer = 0.0;
+                    player.vx = 60; // gentle push into house
+                    player.vy = 0;
+                }
+
+                if (enteringHouse) {
+                    // gently advance player toward center of the house
+                    double targetHitboxLeft = level.house.x + level.house.width / 2.0 - phW / 2.0;
+                    double advanceSpeed = 90.0;
+                    double maxAdvance = advanceSpeed * dt;
+                    if (player.getHitboxLeft() < targetHitboxLeft) {
+                        player.x = Math.min(player.x + maxAdvance, targetHitboxLeft);
+                    }
+                    enterTimer += dt;
+                    playerAlpha = Math.max(0.0, 1.0 - enterTimer / 1.2);
+
+                    // when player sufficiently inside or timer expired, finish level
+                    if (player.getHitboxRight() >= level.house.x + level.house.width - 8 || enterTimer > 1.5) {
+                        showEndScreen(true);
+                        return;
+                    }
+                }
+            }
+        } catch (Exception e) {
+            // defensive: ignore house detection errors
+        }
+
         // detect falling into hole: if player hitbox center goes below ground level while over a hole
         double centerX = player.getHitboxLeft() + player.getHitboxWidth() / 2.0;
         if (level.isHoleAt(centerX) && player.getHitboxBottom() > level.getGroundY()) {
             // player fell into a hole
             player.takeDamage();
             if (player.getLives() <= 0) {
-                // Game Over: stop the timer and mark flag
-                gameOver = true;
-                if (timer != null) timer.stop();
+                // show loss end screen
+                showEndScreen(false);
+                return;
             } else {
-                // respawn the player at spawn point
-                player.x = level.spawnX;
-                player.y = level.spawnY;
+                // respawn the player at last checkpoint minus 100px (safety), clamp >= 0
+                double respawnX = Math.max(0, lastCheckpointX - 100.0);
+                player.x = respawnX;
+                player.y = level.getGroundY() - player.h;
                 player.vx = 0;
                 player.vy = 0;
                 player.onGround = true;
+                // reposition camera to keep player visible
+                cameraX = Math.max(0, player.x - canvas.getWidth() / 3.0);
             }
         }
 
-        // check for level completion: player reached the end
-        if (player.x >= level.levelWidth - 100) {
-            gameWon = true;
-            scoreManager.updateHighScoreIfNeeded();
-            if (timer != null) timer.stop();
+        // check for level completion: player reached the end (use hitbox and Level.endPosition)
+        try {
+            if (level.endPosition != null) {
+                double endX = level.endPosition.getX();
+                // allow a small offset (~10 px) so reaching slightly before counts
+                double offset = 10.0;
+                if (player.getHitboxRight() >= endX - offset) {
+                    // unified end screen for victory
+                    showEndScreen(true);
+                    return; // ensure update loop does not continue
+                }
+            }
+        } catch (Exception ex) {
+            System.out.println("Error checking level completion: " + ex.getMessage());
+            ex.printStackTrace();
         }
 
         // If HeartManager exists, keep hearts in sync when lives change
@@ -208,6 +276,16 @@ public class Engine {
                 heartManager.updateHearts();
                 lastLives = curLives;
             }
+        }
+
+        // Save checkpoint while player is on a stable ground position.
+        // Only advance checkpoint when player moves forward to avoid regressing it.
+        try {
+            if (player.onGround && player.x > lastCheckpointX) {
+                lastCheckpointX = player.x;
+            }
+        } catch (Exception e) {
+            // defensive: ignore if player state inaccessible
         }
     }
 
@@ -246,98 +324,50 @@ public class Engine {
         // render level (ground, holes, walls)
         level.render(gc);
 
-        // render player
-        player.render(gc);
+        // render player (apply fade during entering sequence)
+        if (enteringHouse) {
+            gc.setGlobalAlpha(playerAlpha);
+            player.render(gc);
+            gc.setGlobalAlpha(1.0);
+        } else {
+            player.render(gc);
+        }
 
         // restore graphics state (undo translation for HUD)
         gc.restore();
 
         // render HUD on top-left (always visible, not affected by camera)
         hud.render(gc);
+        // The end house is rendered as part of the level (world coordinates) and
+        // should not be re-positioned here. Do not add an ImageView that follows
+        // the camera; the Level.render() draws the house at its world X so it
+        // appears at the end of the level when the camera reaches it.
         
-        // if game over, render an overlay message with buttons
-        if (gameOver) {
-            renderEndScreen(false);
-        }
-
-        // if game won, render a victory message with buttons
-        if (gameWon) {
-            renderEndScreen(true);
-        }
+        // end screen is shown via EndScreen; do not draw overlay here
     }
     
-    private void renderEndScreen(boolean isWon) {
-        // Load button images (static so they load once)
-        if (newGameImage == null) loadButtonImages();
-        
-        // Semi-transparent overlay
-        gc.setFill(new Color(0, 0, 0, 0.6));
-        gc.fillRect(0, 0, canvas.getWidth(), canvas.getHeight());
-        
-        double centerX = canvas.getWidth() / 2.0;
-        double centerY = canvas.getHeight() / 2.0;
-        
-        // Title
-        gc.setFill(isWon ? Color.GOLD : Color.RED);
-        gc.setFont(javafx.scene.text.Font.font(60));
-        gc.setTextAlign(javafx.scene.text.TextAlignment.CENTER);
-        String title = isWon ? "LEVEL COMPLETE!" : "GAME OVER";
-        gc.fillText(title, centerX, centerY - 60);
-        
-        // Score info
-        gc.setFill(Color.WHITE);
-        gc.setFont(javafx.scene.text.Font.font(30));
-        gc.fillText("Score: " + scoreManager.getCurrentScore(), centerX, centerY);
-        gc.fillText("Best: " + scoreManager.getHighScore(), centerX, centerY + 40);
-        
-        // Buttons with images (centered horizontally, near bottom)
-        double buttonW = 150;
-        double buttonH = 50;
-        double spacing = 20;
-        double totalWidth = buttonW * 2 + spacing;
-        double startX = centerX - totalWidth / 2.0;
-        double newGameX = startX;
-        double exitX = startX + buttonW + spacing;
-        double buttonY = canvas.getHeight() - 200; // place buttons near bottom
+    private void showEndScreen(boolean win) {
+        // mark flags and stop the timer to halt game updates/physics
+        gameWon = win;
+        gameOver = !win;
+        if (timer != null) timer.stop();
 
-        // New Game button
-        gc.setFill(Color.BLUE);
-        gc.fillRect(newGameX, buttonY, buttonW, buttonH);
-        gc.setFill(Color.WHITE);
-        gc.setFont(javafx.scene.text.Font.font(25));
-        gc.setTextAlign(javafx.scene.text.TextAlignment.CENTER);
-        gc.fillText("New Game", newGameX + buttonW / 2.0, buttonY + buttonH / 2.0 + 8);
-
-        // Exit button
-        gc.setFill(Color.LIGHTBLUE);
-        gc.fillRect(exitX, buttonY, buttonW, buttonH);
-        gc.setFill(Color.BLACK);
-        gc.setFont(javafx.scene.text.Font.font(25));
-        gc.setTextAlign(javafx.scene.text.TextAlignment.CENTER);
-        gc.fillText("Exit", exitX + buttonW / 2.0, buttonY + buttonH / 2.0 + 8);
-        
-    }
-    
-    private Image newGameImage = null;
-    private Image exitImage = null;
-    
-    private void loadButtonImages() {
+        // Persist the current score asynchronously and update high score if needed.
+        // Use async write to avoid blocking the JavaFX thread / game loop.
         try {
-            java.io.File newGameFile = new java.io.File("res/newgame.png");
-            if (newGameFile.exists()) {
-                newGameImage = new Image(newGameFile.toURI().toString());
-            }
+            scoreManager.saveCurrentScoreAsync();
+            scoreManager.updateHighScoreIfNeeded();
         } catch (Exception e) {
-            System.out.println("Could not load newgame.png: " + e.getMessage());
+            System.out.println("Error saving score on end: " + e.getMessage());
         }
-        
-        try {
-            java.io.File exitFile = new java.io.File("res/exit.png");
-            if (exitFile.exists()) {
-                this.exitImage = new Image(exitFile.toURI().toString());
+        // show the unified EndScreen on JavaFX thread
+        Platform.runLater(() -> {
+            try {
+                com.jumpiquest.main.EndScreen.showEndScreen(stage, scoreManager, win);
+            } catch (Exception e) {
+                System.out.println("Error showing EndScreen: " + e.getMessage());
+                e.printStackTrace();
             }
-        } catch (Exception e) {
-            System.out.println("Could not load exit.png: " + e.getMessage());
-        }
+        });
     }
 }

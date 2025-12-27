@@ -1,5 +1,7 @@
 package com.jumpiquest.main;
 
+import java.io.File;
+
 import com.jumpiquest.engine.Engine;
 
 import javafx.geometry.Insets;
@@ -10,83 +12,109 @@ import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.RadioButton;
 import javafx.scene.control.ToggleGroup;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
+import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.stage.Stage;
 
 public class MainMenu {
     public static void show(Stage stage, ScoreManager scoreManager) {
-    Label title = new Label("JUMPIO\nQUEST");
-    title.setFont(Font.font(48));
-    title.getStyleClass().add("title");
+        // Image de fond avec léger flou
+        StackPane rootStack = new StackPane();
+        ImageView backgroundImage = null;
+        try {
+            File bgFile = new File("res/landscape.jpg");
+            if (bgFile.exists()) {
+                Image bgImg = new Image(bgFile.toURI().toString());
+                backgroundImage = new ImageView(bgImg);
+                backgroundImage.setFitWidth(800);
+                backgroundImage.setFitHeight(600);
+                backgroundImage.setPreserveRatio(false);
+                backgroundImage.setStyle("-fx-effect: gaussianblur(15);");
+            }
+        } catch (Exception e) {
+            System.out.println("Could not load background image: " + e.getMessage());
+        }
 
-    Label scoreLabel = new Label("Best: " + scoreManager.getHighScore());
-        scoreLabel.setFont(Font.font(18));
-        scoreLabel.getStyleClass().add("score-label");
+        // Overlay très léger
+        StackPane overlay = new StackPane();
+        overlay.setStyle("-fx-background-color: rgba(255, 255, 255, 0.15);");
+        overlay.setPrefSize(800, 600);
+
+        // Titre coloré et fun
+        Label title = new Label("JUMPIO QUEST");
+        title.setFont(Font.font("Arial", 75));
+        title.setTextFill(Color.web("#FFD700"));
+        title.setStyle(
+            "-fx-font-weight: bold;" +
+            "-fx-alignment: center;" +
+            "-fx-effect: dropshadow(gaussian, rgba(255, 255, 255, 0.8), 15, 0.5, 0, 0)," +
+            "           dropshadow(gaussian, rgba(0, 0, 0, 0.6), 20, 0, 0, 5);"
+        );
+
+        // Meilleur score
+        Label scoreLabel = new Label("🏆 Record: " + scoreManager.getHighScore());
+        scoreLabel.setFont(Font.font("Arial", 28));
+        scoreLabel.setTextFill(Color.WHITE);
+        scoreLabel.setStyle(
+            "-fx-font-weight: bold;" +
+            "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.8), 10, 0, 0, 3);"
+        );
+
+        // Panneau de difficulté coloré
+        Label difficultyLabel = new Label("choose you level of difficulty:");
+        difficultyLabel.setFont(Font.font("Arial", 24));
+        difficultyLabel.setTextFill(Color.web("#FF6B6B"));
+        difficultyLabel.setStyle("-fx-font-weight: bold;");
 
         ToggleGroup tg = new ToggleGroup();
-        RadioButton rbEasy = new RadioButton("Facile");
-        rbEasy.setToggleGroup(tg);
-        rbEasy.setUserData(GameSettings.Difficulty.FACILE);
-        RadioButton rbMedium = new RadioButton("Moyen");
-        rbMedium.setToggleGroup(tg);
-        rbMedium.setUserData(GameSettings.Difficulty.MOYEN);
-        RadioButton rbHard = new RadioButton("Difficile");
-        rbHard.setToggleGroup(tg);
-        rbHard.setUserData(GameSettings.Difficulty.DIFFICILE);
-        rbEasy.setSelected(true);
+        
+        RadioButton rbEasy = createDifficultyButton("😊 Easy", GameSettings.Difficulty.FACILE, tg, true);
+        RadioButton rbMedium = createDifficultyButton("😎 Medium", GameSettings.Difficulty.MOYEN, tg, false);
+        RadioButton rbHard = createDifficultyButton("🔥 Hard", GameSettings.Difficulty.DIFFICILE, tg, false);
 
         HBox difficultyBox = new HBox(20, rbEasy, rbMedium, rbHard);
         difficultyBox.setAlignment(Pos.CENTER);
-        difficultyBox.getStyleClass().add("difficulty-row");
 
-        // style radio buttons to look like pixel toggles
-        rbEasy.getStyleClass().add("pixel-toggle");
-        rbMedium.getStyleClass().add("pixel-toggle");
-        rbHard.getStyleClass().add("pixel-toggle");
+        VBox difficultyPanel = new VBox(15, difficultyLabel, difficultyBox);
+        difficultyPanel.setAlignment(Pos.CENTER);
+        difficultyPanel.setPadding(new Insets(30, 50, 30, 50));
+        difficultyPanel.setStyle(
+            "-fx-background-color: rgba(255, 255, 255, 0.95);" +
+            "-fx-background-radius: 25;" +
+            "-fx-border-color: #FF6B6B;" +
+            "-fx-border-width: 5;" +
+            "-fx-border-radius: 25;" +
+            "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.3), 20, 0, 0, 6);"
+        );
 
-        // Create START button with play.png image
-        Button startBtn = new Button();
-        startBtn.setPrefWidth(120);
-        startBtn.setPrefHeight(120);
-        startBtn.setStyle("-fx-padding: 0; -fx-background-color: transparent;");
+        // Gros bouton JOUER coloré
+        Button startBtn = new Button("PLAY NOW");
+        startBtn.setPrefWidth(320);
+        startBtn.setPrefHeight(80);
+        startBtn.setFont(Font.font("Arial", 32));
+        startBtn.setStyle(
+            "-fx-background-color: #4CAF50;" +
+            "-fx-text-fill: white;" +
+            "-fx-font-weight: bold;" +
+            "-fx-background-radius: 25;" +
+            "-fx-cursor: hand;" +
+            "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.4), 20, 0, 0, 6);"
+        );
         
-        // Load and set play.png image
-        try {
-            java.io.File playFile = new java.io.File("res/play.png");
-            if (playFile.exists()) {
-                javafx.scene.image.Image playImage = new javafx.scene.image.Image(playFile.toURI().toString());
-                javafx.scene.image.ImageView playImageView = new javafx.scene.image.ImageView(playImage);
-                playImageView.setFitWidth(120);
-                playImageView.setFitHeight(120);
-                playImageView.setPreserveRatio(true);
-                startBtn.setGraphic(playImageView);
-            } else {
-                startBtn.setText("START");
-                startBtn.setMinWidth(160);
-                startBtn.getStyleClass().add("pixel-button");
-            }
-        } catch (Exception ex) {
-            startBtn.setText("START");
-            startBtn.setMinWidth(160);
-            startBtn.getStyleClass().add("pixel-button");
-        }
-        
-        startBtn.getStyleClass().add("pixel-button");
         startBtn.setOnAction(e -> {
-            // store chosen difficulty
             if (tg.getSelectedToggle() != null) {
                 GameSettings.setDifficulty((GameSettings.Difficulty) tg.getSelectedToggle().getUserData());
             } else {
                 GameSettings.setDifficulty(GameSettings.Difficulty.FACILE);
             }
 
-            // Reset score for new game and create engine with scoreManager
             scoreManager.resetCurrentScore();
             
-            // create and launch game scene using existing game code
             Canvas canvas = new Canvas(800, 600);
             StackPane root = new StackPane(canvas);
             Engine engine = new Engine(canvas, scoreManager, stage, root);
@@ -100,27 +128,90 @@ public class MainMenu {
             engine.start();
         });
 
-        VBox vbox = new VBox(18, title, scoreLabel, difficultyBox, startBtn);
-        vbox.setAlignment(Pos.CENTER);
-        vbox.setPadding(new Insets(24));
-        vbox.getStyleClass().add("menu-panel");
+        startBtn.setOnMouseEntered(e -> {
+            startBtn.setStyle(
+                "-fx-background-color: #66BB6A;" +
+                "-fx-text-fill: white;" +
+                "-fx-font-weight: bold;" +
+                "-fx-background-radius: 25;" +
+                "-fx-cursor: hand;" +
+                "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.6), 25, 0, 0, 8);"
+            );
+            startBtn.setScaleX(1.12);
+            startBtn.setScaleY(1.12);
+        });
 
-        StackPane rootStack = new StackPane(vbox);
-        rootStack.getStyleClass().add("menu-root");
+        startBtn.setOnMouseExited(e -> {
+            startBtn.setStyle(
+                "-fx-background-color: #4CAF50;" +
+                "-fx-text-fill: white;" +
+                "-fx-font-weight: bold;" +
+                "-fx-background-radius: 25;" +
+                "-fx-cursor: hand;" +
+                "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.4), 20, 0, 0, 6);"
+            );
+            startBtn.setScaleX(1.0);
+            startBtn.setScaleY(1.0);
+        });
+
+        // Layout principal
+        VBox vbox = new VBox(40, title, scoreLabel, difficultyPanel, startBtn);
+        vbox.setAlignment(Pos.CENTER);
+        vbox.setPadding(new Insets(40));
+
+        // Assemblage
+        if (backgroundImage != null) {
+            rootStack.getChildren().add(backgroundImage);
+        }
+        rootStack.getChildren().addAll(overlay, vbox);
         rootStack.setAlignment(Pos.CENTER);
 
         Scene menuScene = new Scene(rootStack, 800, 600);
-
-        // Load the pixel theme stylesheet (uses landscape.jpg from resources)
-        try {
-            String css = MainMenu.class.getResource("/menu.css").toExternalForm();
-            menuScene.getStylesheets().add(css);
-        } catch (Exception ex) {
-            System.out.println("Could not load menu stylesheet: " + ex.getMessage());
-        }
-
         stage.setScene(menuScene);
         stage.setTitle("Jumpio Quest - Menu");
         stage.show();
+    }
+
+    private static RadioButton createDifficultyButton(String text, GameSettings.Difficulty difficulty, 
+                                                      ToggleGroup tg, boolean selected) {
+        RadioButton rb = new RadioButton(text);
+        rb.setToggleGroup(tg);
+        rb.setUserData(difficulty);
+        rb.setSelected(selected);
+        rb.setFont(Font.font("Arial", 20));
+        rb.setMinWidth(140);
+        rb.setPrefWidth(140);
+        rb.setMaxWidth(140);
+        rb.setStyle(
+            "-fx-text-fill: #333333;" +
+            "-fx-font-weight: bold;" +
+            "-fx-cursor: hand;"
+        );
+
+        // Effet hover sans scale pour éviter les bugs
+        rb.setOnMouseEntered(e -> {
+            rb.setStyle(
+                "-fx-text-fill: #FF6B6B;" +
+                "-fx-font-weight: bold;" +
+                "-fx-cursor: hand;" +
+                "-fx-underline: true;" +
+                "-fx-min-width: 140;" +
+                "-fx-pref-width: 140;" +
+                "-fx-max-width: 140;"
+            );
+        });
+
+        rb.setOnMouseExited(e -> {
+            rb.setStyle(
+                "-fx-text-fill: #333333;" +
+                "-fx-font-weight: bold;" +
+                "-fx-cursor: hand;" +
+                "-fx-min-width: 140;" +
+                "-fx-pref-width: 140;" +
+                "-fx-max-width: 140;"
+            );
+        });
+
+        return rb;
     }
 }

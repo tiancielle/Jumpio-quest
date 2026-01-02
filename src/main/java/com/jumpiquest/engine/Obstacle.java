@@ -20,8 +20,8 @@ public class Obstacle {
     private Image spriteImage = null;
     private String spriteName = null;
     // visual size for rendering the sprite (can be larger than hitbox)
-    private double visualW = 80;
-    private double visualH = 80;
+    private double visualW = 90;
+    private double visualH = 75;
 
     public Obstacle(Type type, double x, double w, double h) {
         this.type = type;
@@ -40,7 +40,7 @@ public class Obstacle {
         spriteName = sprites[ThreadLocalRandom.current().nextInt(sprites.length)];
         
         try {
-            File f = new File("res/" + spriteName);
+            File f = new File("res/levels/" + spriteName);
             if (f.exists()) {
                 spriteImage = new Image(f.toURI().toString());
             }

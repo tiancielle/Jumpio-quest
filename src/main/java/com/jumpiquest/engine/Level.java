@@ -66,12 +66,16 @@ public class Level {
         double currentX = 0.0;
         ThreadLocalRandom rnd = ThreadLocalRandom.current();
 
+        // Safe zone: last N pixels of the level where no hazards/items should spawn
+        final double safeZoneLength = 600.0;
+        final double startSafeZoneX = Math.max(0, levelWidth - safeZoneLength);
+
         // generation parameters already initialized by initDifficultySettings in constructor
 
         while (currentX < levelWidth) {
-            // If we are within the final safe zone (last 600px), create a final platform to the end and stop
+            // If we are within the final safe zone, create a final platform to the end and stop
             double remaining = levelWidth - currentX;
-            if (remaining <= 600) {
+            if (remaining <= safeZoneLength) {
                 double finalLen = Math.max(0, remaining);
                 if (finalLen > 0) {
                     Obstacle finalPlatform = new Obstacle(Obstacle.Type.PLATFORM, currentX, finalLen, 0);
@@ -93,7 +97,7 @@ public class Level {
             double holeX = currentX + platformLen;
             
             // Only spawn hole if random chance passes and hole start is not in final safe zone
-            if (rnd.nextDouble() < holeSpawnChance && holeX < levelWidth - 600) {
+            if (rnd.nextDouble() < holeSpawnChance && holeX < startSafeZoneX) {
                 holeSize = rnd.nextDouble(holeMin, holeMax);
                 // if the hole would exceed level, clamp
                 if (holeX >= levelWidth) {
@@ -117,7 +121,7 @@ public class Level {
                 double maxX = currentX + Math.max(60, platformLen - Math.max(60, platformLen * 0.15));
                 if (minX < maxX) {
                     double wallX = rnd.nextDouble(minX, maxX);
-                    if (wallX >= levelWidth - 600) {
+                    if (wallX >= startSafeZoneX) {
                         // skip wall placement if it would be inside final safe zone
                         // simply skip adding this wall
                     } else {
@@ -138,15 +142,15 @@ public class Level {
             currentX = holeX + holeSize + extraGap;
         }
 
-        // Generate mobile obstacles at specific positions
-        generateMobileObstacles();
+        // Generate mobile obstacles at specific positions (avoid safe zone)
+        generateMobileObstacles(startSafeZoneX);
         
         // Generate food items along the level
-        generateFoodItems();
+        generateFoodItems(startSafeZoneX);
 
         // place an end-house at a fixed X based on difficulty (so it's always at the intended world coordinate)
-        double houseW = 256;
-        double houseH = 256;
+        double houseW = 550;
+        double houseH = 350;
         double targetX;
         com.jumpiquest.main.GameSettings.Difficulty diff2 = com.jumpiquest.main.GameSettings.getDifficulty();
         if (diff2 == com.jumpiquest.main.GameSettings.Difficulty.FACILE) targetX = 5000;
@@ -157,26 +161,28 @@ public class Level {
         double hy = groundY - houseH;
         house = new EndHouse(hx, hy, houseW, houseH);
         // set endPosition near house center so legacy checks work
-        endPosition = new javafx.geometry.Point2D(hx + houseW / 2.0, hy);
+        endPosition = new javafx.geometry.Point2D(hx + houseW / 9.0, hy);
     }
 
     private void generateMobileObstacles() {
+        // Deprecated: use generateMobileObstacles(startSafeZoneX) instead.
+        generateMobileObstacles(Math.max(0, levelWidth - 700.0));
+    }
+    
+    // Overloaded version that accepts the safe zone start X
+    private void generateMobileObstacles(double startSafeZoneX) {
         mobileObstacles.clear();
-        // Spawn sheep obstacles at various positions along the level.
-        // SheepObstacle slides left with a sprite and will respawn to the right
-        // when it leaves the screen.
         double[] positions = {1200, 2000, 3000, 4000, 5200, 6500, 7200};
         double mobileY = groundY - 40; // ground level for mobile obstacles (40 is their height)
 
         for (double pos : positions) {
             // avoid spawning mobile obstacles inside the final safe zone
-            if (pos < levelWidth - 600) {
+            if (pos < startSafeZoneX && pos < levelWidth) {
                 mobileObstacles.add(new SheepObstacle(pos, mobileY, levelWidth));
             }
         }
     }
-
-    private void generateFoodItems() {
+    private void generateFoodItems(double startSafeZoneX) {
         foodItems.clear();
         ThreadLocalRandom rnd = ThreadLocalRandom.current();
         
@@ -198,6 +204,9 @@ public class Level {
             // Clamp to level bounds
             foodX = Math.max(100, Math.min(levelWidth - 50, foodX));
             
+            // do not place food inside final safe zone
+            if (foodX >= startSafeZoneX) continue;
+
             // Randomize Y position: slightly above ground or on platforms
             double foodY = groundY - 30 - rnd.nextDouble(0, 100); // between -30 and -130 from ground
             

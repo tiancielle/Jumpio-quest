@@ -9,6 +9,8 @@ public class MobileObstacle {
     public final double w = 100; // width
     public final double h = 80; // height
     public final double speed = 1.5; // pixels per frame (moving left)
+    // Flag to track ongoing collision with player to avoid repeating SFX
+    private boolean playerColliding = false;
 
     public MobileObstacle(double x, double y) {
         this.x = x;
@@ -58,5 +60,13 @@ public class MobileObstacle {
                playerX + playerW > x &&
                playerY < y + h &&
                playerY + playerH > y;
+    }
+
+    public boolean isPlayerColliding() {
+        return playerColliding;
+    }
+
+    public void setPlayerColliding(boolean colliding) {
+        this.playerColliding = colliding;
     }
 }

@@ -1,10 +1,11 @@
 package com.jumpiquest.engine;
 
+import java.io.File;
+import java.util.Random;
+
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.image.Image;
 import javafx.scene.paint.Color;
-import java.io.File;
-import java.util.Random;
 
 public class FoodItem {
     public double x;
@@ -48,7 +49,7 @@ public class FoodItem {
             }
             
             // Fallback to res/ folder
-            File resDir = new File("res/" + imageName);
+            File resDir = new File("res/foodItem/" + imageName);
             if (resDir.exists()) {
                 return new Image(resDir.toURI().toString());
             }

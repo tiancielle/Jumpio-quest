@@ -3,6 +3,7 @@ package com.jumpiquest.main;
 import java.io.File;
 
 import com.jumpiquest.engine.Engine;
+import com.jumpiquest.utils.SoundManager;
 
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -73,9 +74,9 @@ public class MainMenu {
 
         ToggleGroup tg = new ToggleGroup();
         
-        RadioButton rbEasy = createDifficultyButton("😊 Easy", GameSettings.Difficulty.FACILE, tg, true);
-        RadioButton rbMedium = createDifficultyButton("😎 Medium", GameSettings.Difficulty.MOYEN, tg, false);
-        RadioButton rbHard = createDifficultyButton("🔥 Hard", GameSettings.Difficulty.DIFFICILE, tg, false);
+        RadioButton rbEasy = createDifficultyButton(" Easy", GameSettings.Difficulty.FACILE, tg, true);
+        RadioButton rbMedium = createDifficultyButton(" Medium", GameSettings.Difficulty.MOYEN, tg, false);
+        RadioButton rbHard = createDifficultyButton(" Hard", GameSettings.Difficulty.DIFFICILE, tg, false);
 
         HBox difficultyBox = new HBox(20, rbEasy, rbMedium, rbHard);
         difficultyBox.setAlignment(Pos.CENTER);
@@ -124,6 +125,9 @@ public class MainMenu {
             stage.setScene(gameScene);
             stage.setTitle("Jumpio Quest - " + GameSettings.getDifficulty().name());
             stage.show();
+
+            // Start background music for the gameplay (single instance, looped)
+            SoundManager.playBackground();
 
             engine.start();
         });

@@ -5,6 +5,7 @@ import java.util.Iterator;
 import java.util.Set;
 
 import com.jumpiquest.main.ScoreManager;
+import com.jumpiquest.utils.SoundManager;
 
 import javafx.animation.AnimationTimer;
 import javafx.application.Platform;
@@ -146,7 +147,13 @@ public class Engine {
         boolean left = keys.contains(KeyCode.LEFT) || keys.contains(KeyCode.A);
         boolean right = keys.contains(KeyCode.RIGHT) || keys.contains(KeyCode.D);
         boolean jump = keys.contains(KeyCode.SPACE) || keys.contains(KeyCode.W) || keys.contains(KeyCode.UP);
+
+        // Detect an initiating jump (player was on ground and jump key pressed)
+        boolean willJump = jump && player.onGround;
         player.update(dt, left, right, jump, level);
+        if (willJump) {
+            SoundManager.playJump();
+        }
 
         // wall collisions handled by level
         level.handleWallCollisions(player);
@@ -183,10 +190,12 @@ public class Engine {
         Iterator<FoodItem> foodIterator = level.foodItems.iterator();
         while (foodIterator.hasNext()) {
             FoodItem food = foodIterator.next();
-            if (food.collidsWith(player.getHitboxLeft(), player.getHitboxTop(), 
+                if (food.collidsWith(player.getHitboxLeft(), player.getHitboxTop(), 
                                  player.getHitboxWidth(), player.getHitboxHeight())) {
                 scoreManager.addPoints(food.value);
                 foodIterator.remove();
+                // play coin SFX
+                SoundManager.playCoin();
             }
         }
 
@@ -351,6 +360,17 @@ public class Engine {
         gameWon = win;
         gameOver = !win;
         if (timer != null) timer.stop();
+
+        // play appropriate SFX and stop background music
+        try {
+            if (win) {
+                SoundManager.playWin();
+            } else {
+                SoundManager.playGameOver();
+            }
+        } catch (Exception e) {
+            System.out.println("Error playing end SFX: " + e.getMessage());
+        }
 
         // Persist the current score asynchronously and update high score if needed.
         // Use async write to avoid blocking the JavaFX thread / game loop.

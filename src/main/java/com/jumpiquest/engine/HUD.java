@@ -20,11 +20,24 @@ public class HUD {
         // Hearts are now managed by HeartManager (ImageView nodes). HUD only draws score.
         
         // Draw score text
-        gc.setFill(Color.WHITE);
-        gc.setFont(Font.font(18));
+        // Slight shadow for readability over background.
+        // Hearts are rendered as ImageViews at the top-left with padding 10 and
+        // size 64 (see HeartManager). Draw the score below the hearts so they
+        // do not overlap.
         gc.setTextAlign(TextAlignment.LEFT);
-        gc.fillText("Score: " + scoreManager.getCurrentScore(), 20, 80);
-        gc.fillText("Best: " + scoreManager.getHighScore(), 20, 105);
+        gc.setFont(Font.font("Arial", 22));
+        // Shadow / outline
+        gc.setFill(Color.rgb(0,0,0,0.75));
+        final double heartsTopPadding = 10.0; // matches HeartManager Insets(10)
+        final double heartSize = 64.0; // matches HeartManager image fit height
+        final double scoreX = 20.0; // left margin a bit inside the canvas
+        final double scoreY = heartsTopPadding + heartSize + 14.0; // below hearts
+        final double bestY = scoreY + 28.0;
+        gc.fillText("Score: " + scoreManager.getCurrentScore(), scoreX + 2, scoreY + 2);
+        gc.fillText("Best: " + scoreManager.getHighScore(), scoreX + 2, bestY + 2);
+        gc.setFill(Color.WHITE);
+        gc.fillText("Score: " + scoreManager.getCurrentScore(), scoreX, scoreY);
+        gc.fillText("Best: " + scoreManager.getHighScore(), scoreX, bestY);
     }
 
     private void drawHeartFull(GraphicsContext gc, double x, double y, double size, Color color) {

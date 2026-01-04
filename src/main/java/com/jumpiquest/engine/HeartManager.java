@@ -1,6 +1,5 @@
 package com.jumpiquest.engine;
 
-import java.io.InputStream;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.image.Image;
@@ -75,6 +74,61 @@ public class HeartManager {
             }
         } catch (Exception e) {
             System.out.println("Could not load emptyheart.png: " + e.getMessage());
+        }
+        // If images are still null, generate simple heart images so hearts are visible
+        if (redHeart == null || emptyHeart == null) {
+            generateFallbackHearts();
+        }
+    }
+
+    private void generateFallbackHearts() {
+        try {
+            int size = 48;
+            javafx.scene.canvas.Canvas c1 = new javafx.scene.canvas.Canvas(size, size);
+            javafx.scene.canvas.GraphicsContext gc1 = c1.getGraphicsContext2D();
+            gc1.setFill(javafx.scene.paint.Color.RED);
+            drawHeartShape(gc1, 4, 4, size - 8, true);
+            javafx.scene.image.WritableImage wi1 = new javafx.scene.image.WritableImage(size, size);
+            c1.snapshot(null, wi1);
+            redHeart = wi1;
+
+            javafx.scene.canvas.Canvas c2 = new javafx.scene.canvas.Canvas(size, size);
+            javafx.scene.canvas.GraphicsContext gc2 = c2.getGraphicsContext2D();
+            gc2.setFill(javafx.scene.paint.Color.GRAY);
+            drawHeartShape(gc2, 4, 4, size - 8, true);
+            javafx.scene.image.WritableImage wi2 = new javafx.scene.image.WritableImage(size, size);
+            c2.snapshot(null, wi2);
+            emptyHeart = wi2;
+        } catch (Exception e) {
+            System.out.println("Failed to generate fallback hearts: " + e.getMessage());
+        }
+    }
+
+    // Simple heart drawing used for fallback images
+    private void drawHeartShape(javafx.scene.canvas.GraphicsContext gc, double x, double y, double size, boolean fill) {
+        double r = size * 0.25;
+        double cx1 = x + r;
+        double cy1 = y + r;
+        double cx2 = x + r*3;
+        double cy2 = y + r;
+        double triX1 = x;
+        double triY1 = y + r;
+        double triX2 = x + size;
+        double triY2 = y + r;
+        double triX3 = x + size*0.5;
+        double triY3 = y + size;
+        if (fill) {
+            gc.fillOval(cx1 - r, cy1 - r, r*2, r*2);
+            gc.fillOval(cx2 - r, cy2 - r, r*2, r*2);
+            double[] xs = { triX1, triX3, triX2 };
+            double[] ys = { triY1, triY3, triY2 };
+            gc.fillPolygon(xs, ys, 3);
+        } else {
+            gc.strokeOval(cx1 - r, cy1 - r, r*2, r*2);
+            gc.strokeOval(cx2 - r, cy2 - r, r*2, r*2);
+            double[] xs = { triX1, triX3, triX2 };
+            double[] ys = { triY1, triY3, triY2 };
+            gc.strokePolygon(xs, ys, 3);
         }
     }
 

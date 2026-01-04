@@ -35,7 +35,9 @@ public class EndScreen {
                 backgroundImage.setFitWidth(800);
                 backgroundImage.setFitHeight(600);
                 backgroundImage.setPreserveRatio(false);
-                backgroundImage.setStyle("-fx-effect: gaussianblur(15);");
+                // Apply a light Gaussian blur for aesthetic effect. To tweak later,
+                // change the radius value passed to GaussianBlur below (currently 5).
+                backgroundImage.setEffect(new javafx.scene.effect.GaussianBlur(5));
             }
         } catch (Exception e) {
             System.out.println("Could not load background image: " + e.getMessage());

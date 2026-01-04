@@ -30,6 +30,7 @@ public class Engine {
     private long lastNs = 0;
     private boolean gameOver = false;
     private boolean gameWon = false;
+    private boolean isPaused = false;
     private double cameraX = 0; // horizontal camera offset in world coords
     // Last checkpoint X position (updated while player is on ground)
     private double lastCheckpointX = 0;
@@ -63,12 +64,100 @@ public class Engine {
     public Engine(Canvas canvas, ScoreManager scoreManager, Stage stage, Pane root) {
         this(canvas, scoreManager, stage);
         this.rootPane = root;
+        // Centralize game UI (background, HUD overlays, pause controls) into the Engine
         try {
+            setupGameUI();
             this.heartManager = new HeartManager(player, rootPane);
             this.lastLives = player.getLives();
         } catch (Exception e) {
-            System.out.println("Could not initialize HeartManager: " + e.getMessage());
+            System.out.println("Could not initialize game UI: " + e.getMessage());
         }
+    }
+
+    /**
+     * Set up in-game UI elements inside the provided root Pane.
+     * This centralizes background, pause overlay and pause button so they cannot
+     * be accidentally created elsewhere and ensures correct stacking order.
+     */
+    private void setupGameUI() {
+        if (rootPane == null) return;
+
+        // Ensure the canvas is present; root was created as new StackPane(canvas)
+        try {
+            // Add background image behind the canvas
+            java.io.File gameBg = new java.io.File("res/landscape.png");
+            if (!gameBg.exists()) gameBg = new java.io.File("res/landscape.jpg");
+            if (gameBg.exists()) {
+                javafx.scene.image.Image gimg = new javafx.scene.image.Image(gameBg.toURI().toString());
+                javafx.scene.image.ImageView gview = new javafx.scene.image.ImageView(gimg);
+                gview.setFitWidth(800);
+                gview.setFitHeight(600);
+                gview.setPreserveRatio(false);
+                // slightly darken the background so HUD/buttons contrast better
+                javafx.scene.effect.ColorAdjust adjust = new javafx.scene.effect.ColorAdjust();
+                adjust.setBrightness(-0.25);
+                adjust.setSaturation(-0.05);
+                gview.setEffect(adjust);
+                gview.setOpacity(0.88);
+                // place/ensure background at bottom
+                rootPane.getChildren().add(0, gview);
+            }
+        } catch (Exception ignore) {}
+
+        // Pause overlay (initially hidden)
+        javafx.scene.layout.StackPane pauseOverlay = new javafx.scene.layout.StackPane();
+        pauseOverlay.setStyle("-fx-background-color: rgba(0,0,0,0.20);");
+        pauseOverlay.setVisible(false);
+        pauseOverlay.setPrefSize(800, 600);
+        pauseOverlay.setFocusTraversable(false);
+
+        // Shared button style matching MainMenu / EndScreen
+        String sharedBtnStyle = "-fx-background-color: #4CAF50; -fx-text-fill: white; -fx-font-weight: bold; -fx-background-radius: 25; -fx-cursor: hand; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.4), 20, 0, 0, 6);";
+
+        javafx.scene.control.Button pauseBtn = new javafx.scene.control.Button("Pause");
+        pauseBtn.setStyle("-fx-font-size:16px; -fx-background-radius:8; -fx-padding:8 12 8 12;" + sharedBtnStyle);
+        pauseBtn.setOnAction(ev -> {
+            this.pause();
+            pauseOverlay.setVisible(true);
+        });
+
+        javafx.scene.layout.VBox menuBox = new javafx.scene.layout.VBox(20);
+        menuBox.setStyle("-fx-background-color: rgba(255,255,255,0.95); -fx-padding:20; -fx-background-radius:12;");
+        javafx.scene.control.Button resumeBtn = new javafx.scene.control.Button("Resume");
+        javafx.scene.control.Button quitBtn = new javafx.scene.control.Button("Quit");
+        resumeBtn.setPrefWidth(220);
+        quitBtn.setPrefWidth(220);
+        resumeBtn.setPrefHeight(64);
+        quitBtn.setPrefHeight(64);
+        resumeBtn.setStyle("-fx-font-size:20px; -fx-padding:12 18 12 18;" + sharedBtnStyle);
+        quitBtn.setStyle("-fx-font-size:20px; -fx-padding:12 18 12 18;" + sharedBtnStyle);
+        resumeBtn.setOnAction(ae -> {
+            pauseOverlay.setVisible(false);
+            this.resume();
+            // ensure keyboard focus returns to the canvas so input works immediately
+            try { ((javafx.scene.canvas.Canvas)canvas).requestFocus(); } catch (Exception ignore) {}
+        });
+        quitBtn.setOnAction(ae -> {
+            try { this.stop(); } catch (Exception ignore) {}
+            try { com.jumpiquest.utils.SoundManager.stopBackground(); } catch (Exception ignore) {}
+            // navigate back to main menu on JavaFX thread
+            javafx.application.Platform.runLater(() -> {
+                try { com.jumpiquest.main.MainMenu.show(stage, new com.jumpiquest.main.ScoreManager()); } catch (Exception ignore) {}
+            });
+        });
+        menuBox.getChildren().addAll(resumeBtn, quitBtn);
+        menuBox.setAlignment(javafx.geometry.Pos.CENTER);
+        pauseOverlay.getChildren().add(menuBox);
+
+        // Add overlay and pause button to root (top of stack)
+        rootPane.getChildren().addAll(pauseOverlay, pauseBtn);
+        javafx.scene.layout.StackPane.setAlignment(pauseBtn, javafx.geometry.Pos.TOP_RIGHT);
+        javafx.scene.layout.StackPane.setMargin(pauseBtn, new javafx.geometry.Insets(10));
+
+        // initial focus to canvas
+        try {
+            canvas.requestFocus();
+        } catch (Exception ignore) {}
     }
 
     private void loadBackgroundImage() {
@@ -130,8 +219,11 @@ public class Engine {
                 if (lastNs == 0) lastNs = now;
                 double dt = (now - lastNs) / 1e9;
                 lastNs = now;
-                update(dt);
-                render();
+                // If paused, skip update/render; keep timer stopped to save CPU
+                if (!isPaused) {
+                    update(dt);
+                    render();
+                }
             }
         };
         timer.start();
@@ -139,6 +231,33 @@ public class Engine {
 
     public void stop() {
         if (timer != null) timer.stop();
+    }
+
+    public boolean isPaused() {
+        return isPaused;
+    }
+
+    /**
+     * Pause the game: stop the game loop and any anims/timers. Music handling
+     * is left to caller or SoundManager preferences.
+     */
+    public void pause() {
+        if (isPaused) return;
+        isPaused = true;
+        if (timer != null) timer.stop();
+        // If there were other Timelines/Executors, pause/stop them here.
+    }
+
+    /**
+     * Resume the game loop and animations.
+     */
+    public void resume() {
+        if (!isPaused) return;
+        isPaused = false;
+        // reset lastNs so dt doesn't spike
+        lastNs = 0;
+        if (timer != null) timer.start();
+        // resume other timelines/executors if present
     }
 
     private void update(double dt) {

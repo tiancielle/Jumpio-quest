@@ -95,6 +95,38 @@ public final class SoundManager {
         }
     }
 
+    /**
+     * Pause background music if currently playing.
+     */
+    public static void pauseBackground() {
+        synchronized (LOCK) {
+            try {
+                if (bgPlayer != null) {
+                    MediaPlayer.Status st = bgPlayer.getStatus();
+                    if (st == MediaPlayer.Status.PLAYING) bgPlayer.pause();
+                }
+            } catch (Exception e) {
+                System.out.println("Could not pause background music: " + e.getMessage());
+            }
+        }
+    }
+
+    /**
+     * Resume background music if paused.
+     */
+    public static void resumeBackground() {
+        synchronized (LOCK) {
+            try {
+                if (bgPlayer != null) {
+                    MediaPlayer.Status st = bgPlayer.getStatus();
+                    if (st == MediaPlayer.Status.PAUSED || st == MediaPlayer.Status.STOPPED) bgPlayer.play();
+                }
+            } catch (Exception e) {
+                System.out.println("Could not resume background music: " + e.getMessage());
+            }
+        }
+    }
+
     // Helper to play a one-shot sound. Creates a temporary MediaPlayer and disposes it when finished.
     private static void playOnce(Media media, double volume) {
         if (media == null) return;
